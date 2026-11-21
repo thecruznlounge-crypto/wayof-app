@@ -1,0 +1,7 @@
+// WAYOF on Cloudflare Workers (static app + headers). No secrets needed.
+{
+  "name": "wayof-app",
+  "main": "worker/index.js",
+  "compatibility_date": "2025-09-01",
+  "assets": { "directory": ".", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": true }
+}

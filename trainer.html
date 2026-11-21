@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f3f0f8">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css?v=8.0.2">
+<title>WAYOF · Trainer view</title>
+<style>
+  main{max-width:1100px}
+  .sess{border:1px solid var(--line);border-radius:18px;padding:14px;background:var(--card2);display:grid;gap:10px}
+  .sess .row input,.sess .row select{width:auto}
+  .exlist{display:flex;flex-wrap:wrap;gap:6px}
+  .exlist .chip{display:inline-flex;gap:6px;align-items:center}
+  .exlist .chip button{border:0;background:none;color:var(--muted);padding:0;font-size:15px;line-height:1}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left}th{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main style="padding-bottom:60px">
+  <header class="top"><div class="who"><div class="logo" style="padding:0"><div class="mark"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-6 4 12L16 12h5"/></svg></div></div><div><div class="sub">WAYOF · Trainer view</div><h1 id="title">Loading…</h1></div></div></header>
+  <div id="root"></div>
+</main>
+<div id="sheetRoot"></div>
+<script src="config.js?v=8.0.2"></script>
+<script src="js/data.js?v=8.0.2"></script>
+<script src="js/cloud.js?v=8.0.2"></script>
+<script>
+(function () {
+  const D = window.WAYOF_DATA, C = window.WAYOF_CLOUD, root = document.getElementById('root');
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const token = (location.hash.match(/t=([a-f0-9]+)/) || [])[1];
+  let V = null, week = [], dirty = false;
+  const toast = s => { const n = document.createElement('div'); n.className = 'toast'; n.textContent = s; document.body.append(n); setTimeout(() => n.remove(), 2600); };
+  function fail(msg) { document.getElementById('title').textContent = 'Trainer view'; root.innerHTML = `<div class="card emptystate"><h2>Can't open this plan</h2><p>${esc(msg)}</p></div>`; }
+  if (!token) return fail('This link is missing its access code. Ask your client to send it again.');
+  if (!C.enabled) return fail('This WAYOF install has no backend configured.');
+  C.ready.then(() => C.trainer.view(token)).then(v => { V = v; week = JSON.parse(JSON.stringify(v.plan || [])); render(); }).catch(e => fail(e.message));
+  function render() {
+    document.getElementById('title').textContent = `${V.client_name}'s plan`;
+    const g = V.goals || {}, rec = V.recent || [];
+    const exOpts = D.exercises.map(e => `<option value="${esc(e.name)}">${esc(e.name)} — ${esc(e.gear)}</option>`).join('');
+    root.innerHTML = `<div class="grid">
+      <section class="card s4"><span class="label">Client goals</span><h2 style="margin:4px 0 8px">${esc(D.goals[g.plan_goal] || g.plan_goal || '—')}</h2>
+        <p class="small muted" style="margin:0">${esc(g.level || '')} · ${esc(g.days || '?')} days/week · ${esc(g.minutes || '?')} min</p>
+        <p class="small" style="margin:10px 0 0"><b>Focus:</b> ${(V.focus || []).map(esc).join(', ') || '—'}</p>
+        <p class="small" style="margin:6px 0 0"><b>Daily targets:</b> ${esc(g.steps || '—')} steps · ${esc(g.kcal || '—')} kcal · ${esc(g.protein || '—')} g protein</p>
+        <p class="small" style="margin:6px 0 0"><b>Equipment:</b> ${(V.equipment || []).map(esc).join(', ') || 'Bodyweight'}</p>
+        <p class="note">Weight, photos, meals and chats are private to your client.</p></section>
+      <section class="card s8"><h2>Last 14 days</h2><div style="overflow-x:auto"><table><thead><tr><th>Day</th><th>Steps</th><th>Water</th><th>Sleep</th><th>kcal</th><th>Protein</th><th>Workouts</th></tr></thead><tbody>
+        ${rec.length ? rec.map(r => `<tr><td>${new Date(r.day + 'T12:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</td><td>${r.steps ?? '—'}</td><td>${r.water ?? '—'}</td><td>${r.sleep ?? '—'}</td><td>${r.kcal || '—'}</td><td>${r.protein ? r.protein + 'g' : '—'}</td><td>${(r.workouts || []).map(w => `${esc(w.title)} (${w.minutes}m${w.rpe ? ', ' + esc(w.rpe) : ''})${w.reps ? ' — ' + Object.entries(w.reps).map(([n, s]) => esc(n) + ': ' + s.join('/')).join('; ') : ''}`).join('<br>') || '—'}</td></tr>`).join('') : '<tr><td colspan="7" class="muted">No entries yet.</td></tr>'}</tbody></table></div></section>
+      <section class="card s12"><div class="ch"><h2>Weekly plan</h2><button class="btn soft sm" id="addS">+ Add session</button></div><div class="stack" id="weekBox">${week.map((s, i) => `
+        <div class="sess" data-i="${i}"><div class="row"><select data-f="dow">${DAYS.map((d, j) => `<option value="${j}" ${+s.dow === j ? 'selected' : ''}>${d}</option>`).join('')}</select><input data-f="title" value="${esc(s.title)}" maxlength="60" style="flex:1;min-width:160px"><input data-f="minutes" type="number" min="5" max="180" value="${s.minutes}" style="width:90px" aria-label="Minutes"><button class="btn ghost sm" data-del="${i}">Remove</button></div>
+          <div class="exlist">${(s.ex || []).map((e, k) => `<span class="chip">${esc(e)}<button data-rmex="${i}:${k}" aria-label="Remove">×</button></span>`).join('')}</div>
+          <div class="row"><select data-addex="${i}" style="flex:1;min-width:200px"><option value="">+ Add exercise…</option>${exOpts}</select></div>
+          <input data-f="note" value="${esc(s.note || '')}" maxlength="280" placeholder="Note for this session (optional)"></div>`).join('')}</div></section>
+      <section class="card s12"><h2>Send feedback</h2><div class="field"><label for="note">Note to ${esc(V.client_name)}</label><textarea id="note" rows="4" maxlength="4000" placeholder="What went well, what to adjust, cues to focus on…"></textarea></div>
+        <label class="check"><input type="checkbox" id="incPlan" ${dirty ? 'checked' : ''}> Include my plan changes (client taps “Apply” to accept)</label>
+        <button class="btn brand" id="send">Send to ${esc(V.client_name)}</button>
+        ${(V.notes || []).length ? `<h3 style="margin-top:20px">Previous notes</h3>${V.notes.map(n => `<div class="trainernote"><b>${new Date(n.created_at).toLocaleString()}</b>${n.read ? ' · <span class="muted">read</span>' : ''}<p style="margin:4px 0 0">${esc(n.note)}</p></div>`).join('')}` : ''}</section></div>`;
+  }
+  root.addEventListener('change', e => {
+    const box = e.target.closest('.sess'); if (!box) return; const i = +box.dataset.i, f = e.target.dataset.f;
+    if (e.target.dataset.addex != null) { if (e.target.value) { week[i].ex = [...(week[i].ex || []), e.target.value].slice(0, 8); dirty = true; render(); } return; }
+    if (f) { week[i][f] = f === 'dow' || f === 'minutes' ? +e.target.value : e.target.value; dirty = true; const c = document.getElementById('incPlan'); if (c) c.checked = true; }
+  });
+  root.addEventListener('click', async e => {
+    const t = e.target;
+    if (t.id === 'addS') { week.push({ id: 'n' + Date.now(), dow: 0, title: 'New session', minutes: 30, ex: [] }); dirty = true; render(); }
+    if (t.dataset.del != null) { week.splice(+t.dataset.del, 1); dirty = true; render(); }
+    if (t.dataset.rmex) { const [i, k] = t.dataset.rmex.split(':').map(Number); week[i].ex.splice(k, 1); dirty = true; render(); }
+    if (t.id === 'send') {
+      const note = document.getElementById('note').value.trim(), inc = document.getElementById('incPlan').checked;
+      if (!note && !inc) return toast('Write a note or include plan changes');
+      t.disabled = true;
+      try { await C.trainer.send(token, note, inc ? { week } : null); toast('Sent!'); V = await C.trainer.view(token); dirty = false; render(); }
+      catch (x) { toast(x.message); t.disabled = false; }
+    }
+  });
+})();
+</script>
+</body>
+</html>

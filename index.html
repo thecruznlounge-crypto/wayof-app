@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f3f0f8">
+<meta name="description" content="WAYOF — your health, your way. AI coaching, guided workouts with form check, nutrition from your fridge, weather-smart training and more.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="WAYOF">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script>
+  /* One-click install: capture the browser's install offer immediately, before the app loads. */
+  window.__bip = null;
+  addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__bip = e; dispatchEvent(new Event('wayof-installable')); });
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('./sw.js').catch(function () {});
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css?v=8.0.2">
+<title>WAYOF — Your health. Your way.</title>
+</head>
+<body>
+<div class="app">
+  <aside class="side" aria-label="Main navigation">
+    <div class="logo"><div class="mark"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l2.5-6 4 12L16 12h5"/></svg></div><span>WAYOF<small>YOUR HEALTH. YOUR WAY.</small></span></div>
+    <nav class="sidenav" id="sideNav"></nav>
+    <div class="sidepromo" id="sideInstall" hidden>
+      <h4>Take WAYOF with you</h4>
+      <p>One-click install. Opens full-screen and works offline.</p>
+      <button class="btn sm" data-a="install">Install app</button>
+    </div>
+    <div class="sidefoot">v8 · Your data, your way</div>
+  </aside>
+  <main id="main">
+    <header class="top" id="top"></header>
+    <div id="view" aria-live="polite"></div>
+  </main>
+</div>
+<nav class="dock" id="dock" aria-label="Main navigation"></nav>
+<div id="sheetRoot"></div>
+<div id="tooltip" class="tip" hidden></div>
+<noscript><p style="padding:24px">WAYOF needs JavaScript enabled.</p></noscript>
+<script src="config.js?v=8.0.2"></script>
+<script src="js/data.js?v=8.0.2"></script>
+<script src="js/content.js?v=8.0.2"></script>
+<script src="js/demo.js?v=8.0.2"></script>
+<script src="js/coach.js?v=8.0.2"></script>
+<script src="js/vision.js?v=8.0.2"></script>
+<script src="js/cloud.js?v=8.0.2"></script>
+<script src="js/apps.js?v=8.0.2"></script>
+<script src="js/app.js?v=8.0.2"></script>
+</body>
+</html>
