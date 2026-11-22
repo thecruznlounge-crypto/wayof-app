@@ -13,18 +13,23 @@
 
 ## New in v8.1: shop to a budget, reminders while closed
 - **Nourish → Shop.** Enter a dollar amount, the days, meals (dinners, lunch + dinner or all day) and people. WAYOF plans meals that hit your calorie and protein targets and uses your fridge first. It prices the list in whole packages, so meals that share ingredients cost less together, and keeps a 12% cushion so real store prices don't push you over. Tap ↻ to swap any meal.
-- **Instacart:** **Shop on Instacart** sends the whole list as an Instacart shopping-list page. **Shop this recipe** (on every recipe) sends one dish as an Instacart recipe page. Organic, gluten-free, vegan, low-fat and kosher filters are passed along. You pick the store and pay on Instacart, because no grocery service lets an app check out for you. Without an Instacart key, the list is copied instead.
-- **Prices learn:** tap a price to set what you pay, or **Log receipt** after shopping. Each store gets its own price factor, so next week's plan is closer. When you're over budget, cheaper swaps show with what each one saves.
+- **Shop at…** (on the plan, and **Shop this recipe** on every recipe): pick **Amazon Fresh, Walmart, Publix, Aldi or Target**.
+  - Each item opens that store's search already filled in, and tapped items get checked off.
+  - On Amazon, common staples go into the cart in one tap: chicken, rice, black beans, eggs, oats, Greek yogurt and broth. Add more in `js/shopkit.js` → `ASINS`.
+  - This works now, with no account or approval.
+- **Store brands:** turn on "Store brands for packaged goods" and the plan prices pantry, dairy, frozen and bakery items about 12% lower. The searches then ask for Great Value (Walmart), Publix, Good & Gather (Target) or 365 (Amazon). Fresh produce and meat are searched as-is.
+- **Prices learn:** tap a price to set what you pay, or **Log receipt** after shopping. Each store gets its own price factor. When you're over budget, cheaper swaps show what each one saves.
+- **Amazon commission (optional):** put your Amazon Associates tag in `config.js` → `AMAZON_TAG`.
+- **Instacart (future option):** Instacart isn't accepting new developers right now. The code stays in place but hidden. If they reopen and approve you, add the `INSTACART_API_KEY` secret to the repliplate-app Worker and set `SHOP_API: 'https://repliplate.app/api/shop'` in `config.js`. A "Send the whole list to Instacart" button then appears.
 - **Reminders while WAYOF is closed** (installed app on Chrome or Edge: Android, Windows, Mac, ChromeOS), even offline:
   - your workout, 30 minutes before your usual time
   - bedtime wind-down from your Kayaos shifts
   - fridge items on their use-by day
   - appointments, an hour ahead
-  - shopping day
+  - shopping day (set it in Shop)
   - the Sunday weekly review
 
   They follow your quiet hours and daily cap. The phone decides when to wake the app, so they arrive close to the time, not to the minute. On iPhone and iPad, only the AI push nudges (signed in, Home Screen app) arrive while closed.
-- **Setup:** add the `INSTACART_API_KEY` secret to the **repliplate-app** Worker in Cloudflare. `config.js` already points `SHOP_API` at `https://repliplate.app/api/shop`.
 
 ## New in v8
 ### One account for four apps

@@ -198,7 +198,8 @@
     for (const it of items.values()) {
       if (opts.have && opts.have(it.name, it.key)) it.have = true;
       if (it.pantry && opts.basics !== false) { it.have = true; it.basic = true; }
-      if (it.matched) { it.pkgs = Math.max(1, Math.ceil(it.uses / it.serv)); it.unit = r2(unitPrice(it.key, it.base) * f); it.cost = r2(it.pkgs * it.unit); }
+      const sb = opts.storeBrand && st.prices[it.key] == null && BRANDABLE.includes(it.aisle) ? 1 - STORE_BRAND_SAVING : 1; // your own price edits win
+      if (it.matched) { it.pkgs = Math.max(1, Math.ceil(it.uses / it.serv)); it.unit = r2(unitPrice(it.key, it.base) * f * sb); it.cost = r2(it.pkgs * it.unit); }
       else { it.pkgs = 0; it.unit = r2(unitPrice(it.key, it.per) * f); it.cost = r2(it.unit * it.uses); }
       it.left = it.matched ? Math.max(0, it.pkgs * it.serv - it.uses) : 0; // servings left over for later
       if (!it.have) total += it.cost;
@@ -220,7 +221,7 @@
     const budget = Math.max(5, +opts.budget || 75), cushion = opts.cushion == null ? 0.12 : clamp(+opts.cushion, 0, 0.4);
     const target = r2(budget * (1 - cushion)), goals = opts.goals || {}, goal = opts.goal || 'balanced';
     const pool = (opts.pool || []).filter(m => m && m.ingredients && m.ingredients.length);
-    const N = days * slots.length, costOpts = { have: opts.have, basics: opts.basics, store: opts.store };
+    const N = days * slots.length, costOpts = { have: opts.have, basics: opts.basics, store: opts.store, storeBrand: !!opts.storeBrand };
     const grid = []; for (let d = 0; d < days; d++) for (const s of slots) grid.push({ d, slot: s, meal: null });
     if (!pool.length) return finish();
 
@@ -304,17 +305,17 @@
       const out = used.reduce((a, g) => a + (g.meal.restPrice || 0) * H, 0);
       const outCount = used.filter(g => g.meal.restPrice).length;
       return {
-        v: 1, created: Date.now(), budget, target, cushion, days, household: H, slots, goal, store: opts.store || '',
+        v: 1, created: Date.now(), budget, target, cushion, days, household: H, slots, goal, store: opts.store || '', storeBrand: !!opts.storeBrand,
         meals: grid.map(g => ({ day: DAY_NAMES[((opts.startDay || 0) + g.d) % 7], d: g.d, slot: g.slot, id: g.meal ? g.meal.id : null })),
         items: c.items, pantryCheck: c.pantryCheck, total: c.total, factor: c.factor, over: c.total > budget, underTarget: c.total <= target,
         perDay: { kcal: Math.round(kcal), protein: Math.round(protein) },
         eatingOut: outCount ? r2(out) : 0, outMeals: outCount,
-        swaps: swapsFor(c.items, c.total > target),
+        swaps: swapsFor(c.items, c.total > target, opts.storeBrand),
         empty: !pool.length,
       };
     }
   }
-  function swapsFor(items, needed) {
+  function swapsFor(items, needed, storeBrand) {
     const out = [];
     for (const [fromKey, toKey, note] of SWAPS) {
       const it = items.find(i => !i.have && i.key === fromKey); if (!it) continue;
@@ -322,7 +323,7 @@
       const newCost = Math.max(1, Math.ceil(it.uses / to.serv)) * to.price * factor();
       const save = r2(it.cost - newCost); if (save >= 0.5) out.push({ from: it.name, to: cap(to.search), save, note });
     }
-    out.push({ from: 'Name brands', to: 'Store brand', save: r2(items.filter(i => !i.have).reduce((a, i) => a + i.cost, 0) * 0.12), note: 'Store brands (Publix, Great Value, Kirkland) usually run 10–25% cheaper' });
+    if (!storeBrand) out.push({ from: 'Name brands', to: 'Store brand', save: r2(items.filter(i => !i.have && BRANDABLE.includes(i.aisle)).reduce((a, i) => a + i.cost, 0) * STORE_BRAND_SAVING), note: 'Turn on store brands (Great Value, Publix, Good & Gather, 365) for packaged goods' });
     return out.sort((a, b) => b.save - a.save).slice(0, needed ? 5 : 3);
   }
 
@@ -330,8 +331,9 @@
   function recost(planObj, mealsById, opts = {}) {
     const c = new Map();
     for (const s of planObj.meals) { const m = s.id && mealsById(s.id); if (m) c.set(m.id, { meal: m, times: (c.get(m.id) || { times: 0 }).times + planObj.household }); }
-    const r = costList([...c.values()], { have: opts.have, basics: opts.basics, store: planObj.store });
-    return Object.assign(planObj, { items: r.items, pantryCheck: r.pantryCheck, total: r.total, factor: r.factor, over: r.total > planObj.budget, underTarget: r.total <= planObj.target, swaps: swapsFor(r.items, r.total > planObj.target) });
+    const sb = opts.storeBrand != null ? !!opts.storeBrand : !!planObj.storeBrand;
+    const r = costList([...c.values()], { have: opts.have, basics: opts.basics, store: planObj.store, storeBrand: sb });
+    return Object.assign(planObj, { storeBrand: sb, items: r.items, pantryCheck: r.pantryCheck, total: r.total, factor: r.factor, over: r.total > planObj.budget, underTarget: r.total <= planObj.target, swaps: swapsFor(r.items, r.total > planObj.target, sb) });
   }
 
   /* ---------- learning from receipts and your own prices ---------- */
@@ -400,5 +402,46 @@
   }
   const listText = (title, items) => `${title}\n` + items.filter(i => !i.have).map(i => `☐ ${i.name}${i.pkgs ? ` (${i.pkgs > 1 ? i.pkgs + ' × ' : ''}${i.pkg})` : ''} · ~$${i.cost.toFixed(2)}`).join('\n');
 
-  G.SHOPKIT = { VERSION, PRICES, HEALTH, match, keyOf, norm, costList, plan, recost, logReceipt, setPrice, reset, factor, state: st, listPayload, recipePayload, openInstacart, listText, textOf, measure, DAY_NAMES };
+  /* ---------- stores: open each item in a store's search (no account or approval needed) ---------- */
+  const STORES = [
+    { id: 'amazon', name: 'Amazon Fresh', brand: '365 by Whole Foods Market', search: q => `https://www.amazon.com/s?k=${encodeURIComponent(q)}&i=amazonfresh`, cart: true, note: 'Common items go straight into your Amazon cart in one tap' },
+    { id: 'walmart', name: 'Walmart', brand: 'Great Value', search: q => `https://www.walmart.com/search?q=${encodeURIComponent(q)}` },
+    { id: 'publix', name: 'Publix', brand: 'Publix', search: q => `https://www.instacart.com/store/publix/s?k=${encodeURIComponent(q)}`, note: 'Publix delivery runs through Instacart' },
+    { id: 'aldi', name: 'Aldi', brand: '', search: q => `https://www.instacart.com/store/aldi/s?k=${encodeURIComponent(q)}`, note: 'Aldi delivery runs through Instacart. Most of what Aldi sells is already its own brand.' },
+    { id: 'target', name: 'Target', brand: 'Good & Gather', search: q => `https://www.target.com/s?searchTerm=${encodeURIComponent(q)}` },
+  ];
+  /* Amazon product IDs (ASINs) for common staples, so they drop into the cart in one tap.
+     These are 365 by Whole Foods Market items. Add more as key: 'ASIN' (the 10 characters after /dp/ in an Amazon link). */
+  const ASINS = {
+    'chicken thigh': 'B079VWF8K4',  // 365 boneless skinless chicken thighs
+    'chicken': 'B0787TJRC2',        // 365 boneless skinless chicken breast
+    'rice': 'B084N8LZS3',           // 365 enriched long grain white rice, 80 oz
+    'black bean': 'B074H6QVKY',     // 365 organic black beans, 15 oz
+    'egg': 'B07PKX183J',            // 365 large brown eggs, 12 ct
+    'oat': 'B07NSRM5G3',            // 365 organic old-fashioned rolled oats, 42 oz
+    'greek yogurt': 'B0D7J7595Z',   // 365 nonfat plain Greek yogurt, 32 oz
+    'broth': 'B07KQVDPWB',          // 365 organic chicken broth, 32 oz
+  };
+  const BRANDABLE = ['pantry', 'dairy', 'frozen', 'bakery'];
+  const STORE_BRAND_SAVING = 0.12; // store brands typically run 10–25% below name brands on packaged goods
+  const storeById = id => STORES.find(s => s.id === id) || STORES[0];
+  /** Items to shop: [{ name, search, pkgs, key }] → links per item for a store, plus a one-tap Amazon cart for known items. */
+  function storeLinks(storeId, items, o = {}) {
+    const st = storeById(storeId), asins = Object.assign({}, ASINS, o.asins || {}), inCart = [], rows = [];
+    for (const i of items) {
+      const key = i.key || keyOf(i.name), asin = st.cart && asins[key];
+      if (asin) inCart.push({ i, asin, qty: Math.max(1, Math.min(10, i.pkgs || 1)) });
+      // store brand: prefix packaged goods with the store's own brand; fresh produce and meat are searched as-is
+      const branded = o.storeBrand && st.brand && BRANDABLE.includes(i.aisle || (match(i.name) || {}).aisle);
+      rows.push({ name: i.name, detail: i.pkgs ? `${i.pkgs > 1 ? i.pkgs + ' × ' : ''}${i.pkg}` : (i.qty || ''), url: st.search((branded ? st.brand + ' ' : '') + (i.search || i.name)), inCart: !!asin, brand: branded ? st.brand : '' });
+    }
+    let cartUrl = '';
+    if (inCart.length) {
+      const q = inCart.slice(0, 50).map((c, n) => `ASIN.${n + 1}=${c.asin}&Quantity.${n + 1}=${c.qty}`).join('&');
+      cartUrl = `https://www.amazon.com/gp/aws/cart/add.html?${q}${o.amazonTag ? '&AssociateTag=' + encodeURIComponent(o.amazonTag) : ''}`;
+    }
+    return { store: st, rows, cartUrl, cartCount: inCart.length };
+  }
+
+  G.SHOPKIT = { VERSION, STORES, BRANDABLE, STORE_BRAND_SAVING, ASINS, storeLinks, storeById, PRICES, HEALTH, match, keyOf, norm, costList, plan, recost, logReceipt, setPrice, reset, factor, state: st, listPayload, recipePayload, openInstacart, listText, textOf, measure, DAY_NAMES };
 })(typeof window !== 'undefined' ? window : globalThis);

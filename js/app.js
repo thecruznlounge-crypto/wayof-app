@@ -659,7 +659,7 @@
     const sp = S.shop; if (sp && sp.plan && sp.plan.items) {
       const left = sp.plan.items.filter(i => !i.have && !sp.checked[i.key]).length;
       if (left) { let d = new Date(now); while (d.getDay() !== (sp.day ?? 6)) d = addDays(d, 1);
-        out.push({ id: `ls-${dkey(d)}`, tag: 'shop', at: at(d, sp.hour ?? 10), until: at(d, 20), url: './index.html#nourish', title: 'Shopping day', body: `${left} items on your ${'$' + Math.round(sp.plan.total)} list. Tap to send it to Instacart.` }); }
+        out.push({ id: `ls-${dkey(d)}`, tag: 'shop', at: at(d, sp.hour ?? 10), until: at(d, 20), url: './index.html#nourish', title: 'Shopping day', body: `${left} items on your ${'$' + Math.round(sp.plan.total)} list. Tap to shop it.` }); }
     }
     // weekly review, Sunday evening
     if (T.weekly !== false) { let d = new Date(now); while (d.getDay() !== 0) d = addDays(d, 1);
@@ -1025,11 +1025,11 @@
     const sp = shopPrefs();
     if (!(sp.budget > 0)) return toast('Enter a budget first');
     const p = SK.plan({ budget: sp.budget, days: sp.days, slots: SHOP_SLOTS[sp.meals], household: sp.people, pool: shopPool(sp), goal: sp.goal,
-      goals: { kcal: S.profile.kcal, protein: S.profile.protein }, have: shopHave(sp), basics: sp.basics, store: sp.store, startDay: (new Date().getDay() + 6) % 7 });
+      goals: { kcal: S.profile.kcal, protein: S.profile.protein }, have: shopHave(sp), basics: sp.basics, store: sp.store, storeBrand: !!sp.storeBrand, startDay: (new Date().getDay() + 6) % 7 });
     sp.plan = p; sp.checked = {}; save(); render(); scheduleReminders();
     toast(p.over ? 'That budget is tight. See the cheapest plan and the savings tips.' : `Planned: about ${money(p.total)} of ${money(sp.budget)}`);
   }
-  function recostShop() { const sp = shopPrefs(); if (sp.plan) { SK.recost(sp.plan, mealById, { have: shopHave(sp), basics: sp.basics }); save(); } render(); }
+  function recostShop() { const sp = shopPrefs(); if (sp.plan) { SK.recost(sp.plan, mealById, { have: shopHave(sp), basics: sp.basics, storeBrand: !!sp.storeBrand }); save(); } render(); }
   function swapShopMeal(i) {
     const sp = shopPrefs(), p = sp.plan, s = p && p.meals[i]; if (!s) return;
     const used = new Set(p.meals.map(m => m.id));
@@ -1041,6 +1041,34 @@
       const u = (m.protein || 0) / 10 - Math.max(0, t - p.target) - (used.has(m.id) ? 2 : 0) + Math.random(); if (!best || u > best.u) best = { m, u }; }
     s.id = best.m.id; recostShop(); toast(`Swapped in ${best.m.name}`);
   }
+  /* ---------- Shop at…: store search links + one-tap Amazon cart (works today, no approval needed) ---------- */
+  const PREFIX = { ORGANIC: 'organic', GLUTEN_FREE: 'gluten free', LOW_FAT: 'low fat', KOSHER: 'kosher' };
+  function shopItems(kind, id) {
+    const sp = shopPrefs(), pre = sp.filters.map(f => PREFIX[f]).filter(Boolean).join(' ');
+    let items;
+    if (kind === 'recipe') { const m = mealById(id); if (!m) return null; items = SK.costList([{ meal: m, times: Math.max(1, Math.round((sheetCtx.serv || 1) * (sp.people || 1))) }], { have: shopHave(sp), basics: sp.basics, storeBrand: !!sp.storeBrand }).items.filter(i => !i.have); }
+    else { const p = sp.plan; if (!p) return null; items = p.items.filter(i => !i.have && !sp.checked[i.key]); }
+    return items.map(i => ({ ...i, search: pre ? `${pre} ${i.search || i.name}` : (i.search || i.name) }));
+  }
+  function storesSheet(kind, id) {
+    const sp = shopPrefs(), items = shopItems(kind, id);
+    if (!items) return toast(kind === 'recipe' ? 'Recipe not found' : 'Plan your groceries first');
+    if (!items.length) return toast(kind === 'recipe' ? 'You already have everything for this one' : 'Everything is checked off');
+    ui.storeSheet = { kind, id };
+    const r = SK.storeLinks(sp.retailer || 'amazon', items, { amazonTag: CLOUD.config.AMAZON_TAG || '', storeBrand: !!sp.storeBrand }), title = kind === 'recipe' ? (findRecipe(id) || {}).name : `${sp.plan.days}-day groceries`;
+    openSheet(`<div class="sh"><h2>Shop at…</h2><button class="iconbtn" data-a="close" aria-label="Close">${I('x', 18)}</button></div>
+      <p class="muted small" style="margin-top:0">${esc(title)} · ${items.length} item${items.length === 1 ? '' : 's'}${kind !== 'recipe' && sp.plan ? ` · about ${money(sp.plan.total)}` : ''}</p>
+      <div class="chips" style="margin-bottom:10px">${SK.STORES.map(s => `<button type="button" class="chip ${s.id === r.store.id ? 'on' : ''}" data-a="shop-store" data-v="${s.id}">${esc(s.name)}</button>`).join('')}</div>
+      <label class="check" style="padding-top:0"><input type="checkbox" data-a="shop-brand" ${sp.storeBrand ? 'checked' : ''}> ${r.store.brand ? `Store brand: search ${esc(r.store.brand)} for packaged goods` : 'Store brand (Aldi is mostly its own brand already)'}</label>
+      ${r.store.note ? `<p class="note" style="margin-top:0">${esc(r.store.note)}</p>` : ''}
+      ${r.cartUrl ? `<button class="btn brand" style="width:100%;margin-bottom:6px" data-a="shop-open" data-url="${esc(r.cartUrl)}" data-cart="1">${I('cart', 15)} Add ${r.cartCount} item${r.cartCount === 1 ? '' : 's'} to my Amazon cart</button><p class="small muted" style="margin:0 0 10px">Then tap Find for the rest. Each one opens ${esc(r.store.name)} search with that item filled in.</p>` : `<p class="small muted" style="margin:0 0 10px">Tap Find on each item: ${esc(r.store.name)} opens with it searched. Add it to your cart there. Found items get checked off here.</p>`}
+      <div>${r.rows.map((row, n) => `<div class="row between" style="padding:8px 0;border-top:1px solid var(--line);gap:8px"><span style="min-width:0">${esc(row.name)}${row.detail || row.brand ? `<br><small class="muted">${esc([row.brand, row.detail].filter(Boolean).join(' · '))}</small>` : ''}</span>
+        ${row.inCart ? `<span class="pill">${I('check', 12)} in cart link</span>` : `<button class="btn ghost sm" data-a="shop-open" data-url="${esc(row.url)}" data-k="${esc(items[n].key || '')}">${I('search', 13)} Find</button>`}</div>`).join('')}</div>
+      ${CLOUD.config.SHOP_API ? `<button class="btn soft" style="width:100%;margin-top:12px" data-a="shop-ic" data-kind="${kind}" data-id="${esc(id || '')}">${I('cart', 15)} Send the whole list to Instacart</button>` : ''}
+      <button class="btn ghost sm" style="margin-top:10px" data-a="shop-copy">${I('copy', 13)} Copy list instead</button>`);
+  }
+
+  /* Instacart Developer Platform: kept for later. It only appears when SHOP_API is set in config.js (Instacart isn't taking new developers right now). */
   async function shopInstacart(kind, id) {
     const sp = shopPrefs(), api = CLOUD.config.SHOP_API || '';
     let payload;
@@ -1091,14 +1119,15 @@
       <div class="field"><label>Meals</label>${segB('meals', sp.meals, [['dinner', 'Dinners'], ['both', 'Lunch + dinner'], ['day', 'All day']])}</div>
       <div class="field"><label>Focus</label>${segB('goal', sp.goal, [['balanced', 'Balanced'], ['save', 'Save most'], ['protein', 'More protein'], ['quick', 'Quick']])}</div>
       <div class="field"><label for="shS">Store <span class="muted">(optional, for price learning)</span></label><input id="shS" list="shStores" maxlength="40" data-bind="shop.store" value="${esc(sp.store)}" placeholder="Publix, Aldi, Walmart…"><datalist id="shStores">${STORES.map(s => `<option value="${esc(s)}">`).join('')}</datalist></div>
-      <div class="field"><label>Instacart filters</label><div class="chips">${SHOP_FILTERS.map(([v, l]) => `<button type="button" class="chip ${sp.filters.includes(v) ? 'on' : ''}" data-a="shop-filter" data-v="${v}">${sp.filters.includes(v) ? I('check', 12) + ' ' : ''}${l}</button>`).join('')}</div></div>
+      <div class="field"><label>Prefer</label><div class="chips">${SHOP_FILTERS.map(([v, l]) => `<button type="button" class="chip ${sp.filters.includes(v) ? 'on' : ''}" data-a="shop-filter" data-v="${v}">${sp.filters.includes(v) ? I('check', 12) + ' ' : ''}${l}</button>`).join('')}</div></div>
       <label class="check"><input type="checkbox" data-bind="shop.fridge" ${sp.fridge ? 'checked' : ''}> Use my fridge first ${fridgeN ? `<span class="muted">(${fridgeN} items)</span>` : `<button type="button" class="btn ghost sm" data-a="ntab" data-t="fridge">Add items</button>`}</label>
       <label class="check" style="padding-top:0"><input type="checkbox" data-bind="shop.basics" ${sp.basics ? 'checked' : ''}> I have the basics (oil, salt, spices, sauces)</label>
+      <label class="check" style="padding-top:0"><input type="checkbox" data-bind="shop.storeBrand" ${sp.storeBrand ? 'checked' : ''}> Store brands for packaged goods <span class="muted">(about ${Math.round(SK.STORE_BRAND_SAVING * 100)}% cheaper)</span></label>
       <div class="two"><div class="field"><label for="shD">Shopping day reminder</label><select id="shD" data-bind="shop.day">${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d, i) => `<option value="${i}" ${+sp.day === i ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
         <div class="field"><label for="shH">At</label><select id="shH" data-bind="shop.hour">${[7, 8, 9, 10, 11, 12, 14, 16, 17, 18, 19].map(h => `<option value="${h}" ${+sp.hour === h ? 'selected' : ''}>${COACH.hr12(h)}</option>`).join('')}</select></div></div>
       <button class="btn brand" style="width:100%" data-a="shop-plan">${I('spark', 15)} ${p ? 'Re-plan my groceries' : 'Plan my groceries'}</button>
-      ${!CLOUD.config.SHOP_API ? '<p class="note">Instacart isn\'t connected in config.js yet. You can still plan, and the list copies to paste anywhere.</p>' : ''}</section>`;
-    if (!p) return form + `<section class="card s7 emptystate"><div class="ic">${I('cart', 26)}</div><h3>Your budget plan shows up here</h3><p>Meals for each day, the grocery list with estimated prices, and a button to fill your Instacart cart. Prices are estimates; your store's real total shows at checkout, so WAYOF keeps a cushion.</p></section>`;
+</section>`;
+    if (!p) return form + `<section class="card s7 emptystate"><div class="ic">${I('cart', 26)}</div><h3>Your budget plan shows up here</h3><p>Meals for each day, the grocery list with estimated prices, and quick links to fill your cart at Amazon Fresh, Walmart, Publix, Aldi or Target. Prices are estimates; your store's real total shows at checkout, so WAYOF keeps a cushion.</p></section>`;
 
     const pct = Math.min(100, p.total / p.budget * 100), color = p.over ? 'var(--bad, #e5484d)' : p.underTarget ? 'var(--good)' : 'var(--warn, #f5a524)';
     const goalsDay = { kcal: S.profile.kcal, protein: S.profile.protein }, share = SHOP_SLOTS[sp.meals].reduce((a, s) => a + ({ breakfast: .25, lunch: .3, dinner: .35 })[s], 0);
@@ -1108,7 +1137,7 @@
     const AISLE = { produce: 'Produce', protein: 'Meat & seafood', dairy: 'Dairy & eggs', bakery: 'Bread & bakery', pantry: 'Pantry', frozen: 'Frozen' };
     const outSave = p.eatingOut ? p.eatingOut - p.total * (p.outMeals / Math.max(1, p.meals.filter(m => m.id).length)) : 0;
     const result = `<section class="card s7">
-        <div class="row between"><span class="label">${p.days}-day plan · ${p.household} ${p.household === 1 ? 'person' : 'people'}${p.store ? ' · ' + esc(p.store) : ''}</span><span class="pill">${p.over ? 'Over budget' : p.underTarget ? 'On budget' : 'Close to budget'}</span></div>
+        <div class="row between"><span class="label">${p.days}-day plan · ${p.household} ${p.household === 1 ? 'person' : 'people'}${p.store ? ' · ' + esc(p.store) : ''}${p.storeBrand ? ' · store brands' : ''}</span><span class="pill">${p.over ? 'Over budget' : p.underTarget ? 'On budget' : 'Close to budget'}</span></div>
         <div class="row" style="align-items:baseline;gap:8px;margin:6px 0"><span class="big num">${money(p.total)}</span><span class="muted">estimated of ${money(p.budget)}</span></div>
         <div class="bar"><div style="width:${pct}%;background:${color}"></div></div>
         <p class="muted small" style="margin:8px 0 0">${p.over ? `The cheapest plan from your recipes is ${money(p.total - p.budget)} over. Try fewer days or meals, or the swaps below.` : `Kept under ${money(p.target)}, so ${money(p.budget - p.target)} of your budget stays free for real store prices.`}${p.factor !== 1 ? ` Prices adjusted ${p.factor > 1 ? '+' : ''}${Math.round((p.factor - 1) * 100)}% from your receipts.` : ''}</p>
@@ -1116,7 +1145,7 @@
           <div class="kpi"><span class="label">Per day</span><b class="num">${fmt(p.perDay.kcal)}</b><small class="muted">of ~${fmt(Math.round(goalsDay.kcal * share))} kcal</small></div>
           <div class="kpi"><span class="label">Protein</span><b class="num">${p.perDay.protein} g</b><small class="muted">of ~${Math.round(goalsDay.protein * share)} g</small></div>
           <div class="kpi"><span class="label">${outSave > 0 ? 'Saved' : 'Per meal'}</span><b class="num">${outSave > 0 ? money(outSave) : money(p.total / Math.max(1, p.meals.filter(m => m.id).length * p.household))}</b><small class="muted">${outSave > 0 ? 'vs eating out' : 'per serving'}</small></div></div>
-        <div class="row" style="margin-top:14px;flex-wrap:wrap"><button class="btn brand" data-a="shop-ic">${I('cart', 15)} Shop on Instacart</button><button class="btn soft sm" data-a="shop-copy">${I('copy', 13)} Copy list</button><button class="btn ghost sm" data-a="shop-receipt">${I('receipt', 13)} Log receipt</button></div>
+        <div class="row" style="margin-top:14px;flex-wrap:wrap"><button class="btn brand" data-a="shop-stores">${I('cart', 15)} Shop at ${esc(SK.storeById(sp.retailer || 'amazon').name)}</button><button class="btn soft sm" data-a="shop-copy">${I('copy', 13)} Copy list</button><button class="btn ghost sm" data-a="shop-receipt">${I('receipt', 13)} Log receipt</button></div>
       </section>
       <section class="card s7"><div class="ch"><h2>Meals</h2><span class="muted small">Tap ↻ to swap</span></div><div class="stack" style="gap:12px">${byDay.filter(Boolean).map(d => `<div><span class="label">${d.day}</span><div class="stack" style="gap:6px;margin-top:6px">${d.rows.map(r => { const m = r.id && findRecipe(r.id); return m ? `<div class="exrow"><button class="ico thumb" data-a="recipe" data-id="${esc(m.id)}" aria-label="Open ${esc(m.name)}" style="border:0;padding:0">${foodArt(m.art, m.id, m.name)}</button><button data-a="recipe" data-id="${esc(m.id)}" style="all:unset;cursor:pointer;flex:1;min-width:0"><strong>${esc(m.name)}</strong><small>${r.slot[0].toUpperCase() + r.slot.slice(1)} · ${m.kcal} kcal · ${m.p} g protein</small></button><button class="iconbtn" data-a="shop-swap" data-i="${r.i}" aria-label="Swap ${esc(m.name)}">${I('refresh', 16)}</button></div>` : `<div class="exrow"><small>${r.slot}: no recipe fits</small></div>`; }).join('')}</div></div>`).join('')}</div></section>
       <section class="card s5"><div class="ch"><h2>Grocery list</h2><span class="pill">${toBuy.length} items</span></div>
@@ -1949,9 +1978,15 @@
     'shop-filter': el => { const sp = shopPrefs(), v = el.dataset.v; sp.filters = sp.filters.includes(v) ? sp.filters.filter(x => x !== v) : [...sp.filters, v]; save(); render(); },
     'shop-check': el => { const sp = shopPrefs(); sp.checked[el.dataset.k] = el.checked; save(); render(); },
     'shop-swap': el => swapShopMeal(+el.dataset.i),
-    'shop-ic': () => shopInstacart('list'),
-    'shop-recipe': el => shopInstacart('recipe', el.dataset.id),
-    'shop-copy': () => { const p = shopPrefs().plan; if (p) copyText(SK.listText(`WAYOF groceries (~${money(p.total)} of ${money(p.budget)})`, p.items.filter(i => !shopPrefs().checked[i.key])), 'Grocery list copied'); },
+    'shop-ic': el => shopInstacart(el.dataset.kind === 'recipe' ? 'recipe' : 'list', el.dataset.id),
+    'shop-stores': () => storesSheet('list'),
+    'shop-recipe': el => storesSheet('recipe', el.dataset.id),
+    'shop-brand': el => { const sp = shopPrefs(); sp.storeBrand = el.checked; save(); recostShop(); const s = ui.storeSheet || {}; storesSheet(s.kind, s.id); },
+    'shop-store': el => { shopPrefs().retailer = el.dataset.v; save(); const s = ui.storeSheet || {}; storesSheet(s.kind, s.id); },
+    'shop-open': el => { window.open(el.dataset.url, '_blank', 'noopener'); const sp = shopPrefs(), k = el.dataset.k;
+      if (k && sp.plan && (ui.storeSheet || {}).kind !== 'recipe') { sp.checked[k] = true; save(); el.outerHTML = `<span class="pill">${I('check', 12)} opened</span>`; } },
+    'shop-copy': () => { const s = ui.storeSheet; if (s && s.kind === 'recipe' && document.querySelector('.sheet [data-a="shop-store"]')) { const it = shopItems('recipe', s.id) || []; return copyText(SK.listText((findRecipe(s.id) || {}).name || 'Recipe', it), 'Shopping list copied'); }
+      const p = shopPrefs().plan; if (p) copyText(SK.listText(`WAYOF groceries (~${money(p.total)} of ${money(p.budget)})`, p.items.filter(i => !shopPrefs().checked[i.key])), 'Grocery list copied'); },
     'shop-receipt': () => receiptSheet(),
     'shop-receipt-save': () => saveReceipt(),
     'shop-price': el => priceSheet(el.dataset.k),
@@ -2071,6 +2106,7 @@
     if (path.startsWith('shop.') || path.startsWith('nudge.')) scheduleReminders();
     if (path === 'profile.name') v = String(v).trim().slice(0, 45);
     o[key] = v; save();
+    if (path === 'shop.storeBrand') recostShop();
     if (path === 'profile.name') renderHeader();
     else if (path.startsWith('profile.')) toast('Target updated');
     if (path === 'surface') render();
