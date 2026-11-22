@@ -11,6 +11,21 @@
 
 **Before uploading,** delete the old `index.html`, `sw.js`, `manifest.webmanifest`, `css/` and `js/` in `public_html`, then hard-refresh. The Train Library offers four selectable coach avatars, a realistic bodyweight-squat video where available, and spoken form cues for every exercise using the device's speech voice. For future updates, bump the asset query version in `index.html` and `trainer.html`, and `CACHE` in `sw.js`.
 
+## New in v8.1: shop to a budget, reminders while closed
+- **Nourish → Shop.** Enter a dollar amount, the days, meals (dinners, lunch + dinner or all day) and people. WAYOF plans meals that hit your calorie and protein targets and uses your fridge first. It prices the list in whole packages, so meals that share ingredients cost less together, and keeps a 12% cushion so real store prices don't push you over. Tap ↻ to swap any meal.
+- **Instacart:** **Shop on Instacart** sends the whole list as an Instacart shopping-list page. **Shop this recipe** (on every recipe) sends one dish as an Instacart recipe page. Organic, gluten-free, vegan, low-fat and kosher filters are passed along. You pick the store and pay on Instacart, because no grocery service lets an app check out for you. Without an Instacart key, the list is copied instead.
+- **Prices learn:** tap a price to set what you pay, or **Log receipt** after shopping. Each store gets its own price factor, so next week's plan is closer. When you're over budget, cheaper swaps show with what each one saves.
+- **Reminders while WAYOF is closed** (installed app on Chrome or Edge: Android, Windows, Mac, ChromeOS), even offline:
+  - your workout, 30 minutes before your usual time
+  - bedtime wind-down from your Kayaos shifts
+  - fridge items on their use-by day
+  - appointments, an hour ahead
+  - shopping day
+  - the Sunday weekly review
+
+  They follow your quiet hours and daily cap. The phone decides when to wake the app, so they arrive close to the time, not to the minute. On iPhone and iPad, only the AI push nudges (signed in, Home Screen app) arrive while closed.
+- **Setup:** add the `INSTACART_API_KEY` secret to the **repliplate-app** Worker in Cloudflare. `config.js` already points `SHOP_API` at `https://repliplate.app/api/shop`.
+
 ## New in v8
 ### One account for four apps
 - **Sign up / Log in** from the header, the first-run welcome screen, or Profile → Account. It includes **Forgot password** (email link → set a new password in the app), **Change password**, and an optional **Continue with Google** (`GOOGLE_SIGNIN: true` in `config.js` after you enable Google in Supabase → Auth → Providers).

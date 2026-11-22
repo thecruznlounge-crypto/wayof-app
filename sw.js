@@ -1,7 +1,8 @@
-/* WAYOF v7 service worker — offline shell, push notifications, notification taps */
-const CACHE = 'wayof-v8-2';
-const V = '?v=8.0.2';
-const ASSETS = ['./', './index.html', './trainer.html', './config.js' + V, './css/app.css' + V, './js/data.js' + V, './js/content.js' + V, './js/demo.js' + V, './js/coach.js' + V, './js/vision.js' + V, './js/cloud.js' + V, './js/apps.js' + V, './js/app.js' + V, './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+/* WAYOF service worker — offline shell, push notifications, closed-app reminders (LocalNotify), notification taps */
+importScripts('js/localnotify.js?v=8.1.0');
+const CACHE = 'wayof-v8-1-0';
+const V = '?v=8.1.0';
+const ASSETS = ['./', './index.html', './trainer.html', './config.js' + V, './css/app.css' + V, './js/data.js' + V, './js/content.js' + V, './js/demo.js' + V, './js/coach.js' + V, './js/vision.js' + V, './js/cloud.js' + V, './js/apps.js' + V, './js/shopkit.js' + V, './js/localnotify.js' + V, './js/app.js' + V, './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', e => {

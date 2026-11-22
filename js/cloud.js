@@ -37,7 +37,7 @@ window.WAYOF_CLOUD = (function () {
 
   /* sync — app state + daily logs (last-write-wins per day) */
   let dirtyDays = new Set(), stateDirty = false, timer = null, lastSync = null;
-  const pickState = S => ({ profile: S.profile, plan: S.plan, equipment: S.equipment, custom: S.custom, favorites: S.favorites, fridge: S.fridge, budget: S.budget, city: S.city, geo: S.geo, voice: S.voice, reminders: S.reminders, nudge: S.nudge, share: S.share, body: S.body, links: S.links, apptsLocal: S.apptsLocal, myClones: S.myClones });
+  const pickState = S => ({ shop: S.shop, profile: S.profile, plan: S.plan, equipment: S.equipment, custom: S.custom, favorites: S.favorites, fridge: S.fridge, budget: S.budget, city: S.city, geo: S.geo, voice: S.voice, reminders: S.reminders, nudge: S.nudge, share: S.share, body: S.body, links: S.links, apptsLocal: S.apptsLocal, myClones: S.myClones });
   function markDirty(dayKey, getS) { if (!sb || !user) return; if (dayKey) dirtyDays.add(dayKey); stateDirty = true; clearTimeout(timer); timer = setTimeout(() => flush(getS()).catch(e => console.warn('sync', e)), 1500); }
   async function flush(S) {
     if (!sb || !user) return;

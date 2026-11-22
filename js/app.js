@@ -47,7 +47,7 @@
     timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/>', skip: '<path d="M5 5v14l10-7zM19 5v14"/>', pause: '<rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/>',
     wind: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h8"/>', umbrella: '<path d="M3 12a9 9 0 0 1 18 0zM12 12v7a2 2 0 0 0 4 0"/>', thermo: '<path d="M10 14V5a2 2 0 0 1 4 0v9a4 4 0 1 1-4 0z"/>',
     leafy: '<path d="M5 19c8 0 14-6 14-14-8 0-14 6-14 14zM5 19 13 11"/>', star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>', hand: '<path d="M7 11V6a1.5 1.5 0 0 1 3 0v4M10 10V4.5a1.5 1.5 0 0 1 3 0V10M13 10V5.5a1.5 1.5 0 0 1 3 0V12M16 12V8.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-1a6 6 0 0 1-5-3l-2.5-4a1.5 1.5 0 0 1 2.5-1.6L7 14"/>',
-    key: '<circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l3 3M14 9l2 2"/>', logout: '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>'
+    key: '<circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l3 3M14 9l2 2"/>', logout: '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>', cart: '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.6 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.5L22 7H6"/>', receipt: '<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2zM9 8h6M9 12h6M9 16h3"/>', tag: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/>'
   };
   const I = (n, s = 20, sw = 2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ''}</svg>`;
 
@@ -564,8 +564,18 @@
           <div class="three"><div class="field"><label for="qs">Quiet from</label><select id="qs" data-bind="nudge.quietStart">${hourOpts(N.quietStart)}</select></div><div class="field"><label for="qe">Until</label><select id="qe" data-bind="nudge.quietEnd">${hourOpts(N.quietEnd)}</select></div><div class="field"><label for="qm">Max / day</label><select id="qm" data-bind="nudge.max">${[2, 3, 4, 6, 8].map(n => `<option ${+N.max === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
           <div class="row">${perm === 'granted' ? `<span class="status good">${I('check', 14)} Device alerts on</span>` : perm === 'denied' ? `<span class="status bad">${I('bell', 14)} Blocked in browser settings</span>` : perm === 'unsupported' ? `<span class="status warn">${I('bell', 14)} ${isIOS ? 'Install to Home Screen to enable' : 'Not supported here'}</span>` : `<button class="btn brand sm" data-a="notif-perm">${I('bell', 14)} Allow device alerts</button>`}
             ${aiReady() ? `<button class="btn soft sm" data-a="push-sub">${I('cloud', 14)} Background AI nudges</button>` : ''}</div>
-          <p class="note">${aiReady() ? 'Background nudges are written by your AI coach and arrive even when WAYOF is closed.' : 'Without an account, nudges are delivered while WAYOF is open or recently used. Sign in for AI-written background notifications.'}</p></section>
+          <p class="note">${aiReady() ? 'Background nudges are written by your AI coach and arrive even when WAYOF is closed.' : 'Without an account, nudges are delivered while WAYOF is open or recently used. Sign in for AI-written background notifications.'}</p>
+          ${closedAlertsCard()}</section>
       </div></div>`;
+  }
+  function closedAlertsCard() {
+    const st = ui.lnStatus; if (!st) { closedAlertsStatus().then(() => ui.view === 'coach' && render()); return ''; }
+    const line = !st.notifications ? (isIOS ? 'On iPhone and iPad, add WAYOF to your Home Screen and sign in: AI nudges then arrive by push while it\'s closed.' : 'This browser can\'t show notifications.')
+      : !st.granted ? (Notification.permission === 'denied' ? 'Notifications are blocked for WAYOF. Allow them in your browser\'s site settings to get reminders while it\'s closed.' : 'Turn on device alerts above to get reminders while WAYOF is closed.')
+      : st.registered ? 'On: WAYOF wakes up in the background a few times a day and shows workouts, bedtime, fridge, appointment and shopping reminders, even offline. Your phone picks the exact moment, so they land close to the time.'
+      : st.background ? (st.installed ? 'Almost there: tap below so the browser lets WAYOF wake up in the background.' : 'Install WAYOF (one tap, top of the screen) so it can remind you while it\'s closed, even offline.')
+      : isIOS ? 'iPhone and iPad don\'t allow background wake-ups for web apps. Sign in for AI nudges by push, which do arrive while WAYOF is closed.' : 'This browser doesn\'t allow background wake-ups. Use Chrome or Edge, or sign in for push nudges.';
+    return `<div class="insight" style="margin-top:10px"><span class="ic">${I('bell', 16)}</span><span><b>When WAYOF is closed</b><br><small>${line}</small>${st.granted && st.background && !st.registered ? `<br><button class="btn soft sm" style="margin-top:8px" data-a="ln-enable">${I('bell', 13)} Allow background reminders</button>` : ''}</span></div>`;
   }
   const hourOpts = sel => Array.from({ length: 24 }, (_, h) => `<option value="${h}" ${+sel === h ? 'selected' : ''}>${COACH.hr12(h)}</option>`).join('');
   function timeAgo(t) { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`; }
@@ -597,6 +607,7 @@
   const inQuiet = (h, N) => N.quietStart > N.quietEnd ? (h >= N.quietStart || h < N.quietEnd) : (h >= N.quietStart && h < N.quietEnd);
   const typeKey = t => ({ 'workout-late': 'workout', 'steps-goal': 'celebrate', streak: 'celebrate' }[t] || t);
   async function runNudges() {
+    scheduleReminders();
     const N = S.nudge; if (!N.enabled) return;
     const now = new Date(); if (inQuiet(now.getHours(), N)) return;
     const today = TODAY(); Object.keys(N.sent).forEach(k => { if (!k.endsWith(today)) delete N.sent[k]; });
@@ -606,7 +617,7 @@
     const tp = N.types.sleep !== false && tonightPlan();
     if (tp) { const mins = (tp.bed - now) / 60000, id = 'sleep-' + tp.night; if (mins > 20 && mins <= 75 && !N.sent[id]) list.unshift({ id, type: 'sleep', title: 'Time to wind down', body: `${tp.shift ? tp.shift.job + ' at ' + APPS.fmtT(tp.shift.st) + '. ' : ''}Lights out by ${APPS.fmtT(tp.bed)} for ${S.profile.sleep}h of sleep — screens off, dim the lights.`, action: 'apps', at: Date.now() }); }
     const n = list[0]; if (!n) return;
-    N.sent[n.id] = 1; S.feed.unshift({ ...n, read: false }); if (S.feed.length > 40) S.feed.length = 40; save();
+    N.sent[n.id] = 1; if (LN) LN.markShown(n.id); S.feed.unshift({ ...n, read: false }); if (S.feed.length > 40) S.feed.length = 40; save();
     if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
       try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) reg.showNotification(n.title, { body: n.body, tag: n.id, icon: 'icon-192.png', badge: 'icon-192.png', data: { url: './index.html#' + (n.action === 'water' ? 'today' : n.action) } }); } catch (e) { }
     } else if (document.visibilityState === 'visible') toast(`${n.title} — ${n.body}`);
@@ -620,6 +631,47 @@
       ${H.insights.length ? `<div class="stack" style="gap:8px">${H.insights.map(i => `<div class="insight"><span class="ic">${I(i.icon, 16)}</span><span>${esc(i.text)}</span></div>`).join('')}</div>` : '<p class="muted">Not enough data this week yet.</p>'}
       <p class="note">Connect your account for an AI-written review with a focus for next week.</p>`);
   }
+  /* ---------- reminders that arrive while WAYOF is closed (LocalNotify + the browser's background wake-ups) ---------- */
+  const LN = window.LocalNotify;
+  const at = (d, h, m = 0) => { const x = new Date(d); x.setHours(h, m, 0, 0); return +x; };
+  function upcomingReminders() {
+    const N = S.nudge, T = N.types, out = [], now = new Date(), H = COACH.habits(S, 21).stats;
+    if (!N.enabled) return out;
+    const wh = H.workoutHour != null ? H.workoutHour : 18, wH = Math.floor(wh), wM = Math.round((wh - wH) * 60);
+    for (let i = 0; i < 3; i++) {
+      const day = addDays(now, i), k = dkey(day), dayName = i === 0 ? 'today' : i === 1 ? 'tomorrow' : day.toLocaleDateString(undefined, { weekday: 'long' });
+      // workout: 30 min before your usual training time
+      const ses = T.workout !== false && sessionFor(k);
+      if (ses && !isDone(k, ses.id)) out.push({ id: `lw-${k}`, tag: `workout-${k}`, at: at(day, wH, wM) - 30 * 6e4, until: at(day, wH, wM) + 2 * 36e5, url: './index.html#train',
+        title: `${ses.title} in 30 min`, body: `${ses.minutes} min${ses.ex && ses.ex.length ? ' · ' + ses.ex.slice(0, 3).join(', ') : ''}. Tap to start.` });
+      // fridge: the morning an item hits its use-by date
+      if (T.fridge !== false) (S.fridge || []).filter(f => f.exp === k).forEach(f => out.push({ id: `lf-${k}-${f.name}`, tag: `fridge-${k}`, at: at(day, 9), until: at(day, 20), url: './index.html#nourish',
+        title: `Use your ${f.name.toLowerCase()} ${dayName}`, body: 'It hits its use-by date. Tap for recipes that use it.' }));
+      // appointments: 1 hour before (or 9 AM for all-day ones)
+      allAppts().filter(a => a.date === k).forEach(a => { const [h, m] = (a.time || '09:00').split(':').map(Number), when = at(day, h, m);
+        out.push({ id: `la-${a.id || a.title}-${k}`, at: a.time ? when - 36e5 : at(day, 8), until: when + 18e5, url: './index.html#apps', title: a.title, body: `${a.time ? 'At ' + COACH.hr12(h + m / 60) : dayName}${a.place ? ' · ' + a.place : ''}` }); });
+    }
+    // bedtime wind-down from your Kayaos shifts (same tag as the in-app nudge, so it never shows twice)
+    if (T.sleep !== false && kShifts().length) sleepPlanNow().slice(0, 3).forEach(p => { const bed = +new Date(p.bed); if (bed > +now)
+      out.push({ id: 'sleep-' + p.night, tag: 'sleep-' + p.night, at: bed - 45 * 6e4, until: bed, url: './index.html#today', title: 'Time to wind down',
+        body: `Bed by ${APPS.fmtT(new Date(p.bed))}${p.shift ? ` for ${p.shift.job || 'work'} at ${APPS.fmtT(p.shift.st)}` : ''}. Screens off and lights low.` }); });
+    // shopping day: your budget list, the morning you usually shop
+    const sp = S.shop; if (sp && sp.plan && sp.plan.items) {
+      const left = sp.plan.items.filter(i => !i.have && !sp.checked[i.key]).length;
+      if (left) { let d = new Date(now); while (d.getDay() !== (sp.day ?? 6)) d = addDays(d, 1);
+        out.push({ id: `ls-${dkey(d)}`, tag: 'shop', at: at(d, sp.hour ?? 10), until: at(d, 20), url: './index.html#nourish', title: 'Shopping day', body: `${left} items on your ${'$' + Math.round(sp.plan.total)} list. Tap to send it to Instacart.` }); }
+    }
+    // weekly review, Sunday evening
+    if (T.weekly !== false) { let d = new Date(now); while (d.getDay() !== 0) d = addDays(d, 1);
+      out.push({ id: `lr-${dkey(d)}`, tag: 'weekly', at: at(d, 19), until: at(d, 22), url: './index.html#coach', title: 'Your week in review', body: 'See what went well and pick one focus for next week.' }); }
+    return out.filter(i => i.until > +now);
+  }
+  let remT = 0;
+  function scheduleReminders(soon) {
+    if (!LN) return; clearTimeout(remT);
+    remT = setTimeout(() => LN.schedule(upcomingReminders(), { app: 'wayof', quietStart: +S.nudge.quietStart, quietEnd: +S.nudge.quietEnd, max: +S.nudge.max + 2, icon: 'icon-192.png' }).then(s => { ui.lnSupport = s; }), soon ? 50 : 1500);
+  }
+  async function closedAlertsStatus() { if (!LN) return null; ui.lnStatus = await LN.status(); return ui.lnStatus; }
 
   /* ---------- Train ---------- */
   const cc = { links: null, notes: null, groups: null, board: null, feed: null, loading: {} }; // cloud cache
@@ -851,12 +903,13 @@
 
   function vNourish() {
     const k = ui.date, T = totals(k), p = S.profile;
-    const tabs = `<div class="row between" style="margin-bottom:16px"><div class="seg">${[['recipes', 'Recipes'], ['fridge', 'My fridge'], ['copycat', 'Copycat']].map(t => `<button class="${ui.nTab === t[0] ? 'on' : ''}" data-a="ntab" data-t="${t[0]}">${t[1]}${t[0] === 'fridge' && expiringSoon().length ? ` <span class="badge">${expiringSoon().length}</span>` : ''}</button>`).join('')}</div>
+    const tabs = `<div class="row between" style="margin-bottom:16px"><div class="seg">${[['recipes', 'Recipes'], ['fridge', 'My fridge'], ['copycat', 'Copycat'], ['shop', 'Shop']].map(t => `<button class="${ui.nTab === t[0] ? 'on' : ''}" data-a="ntab" data-t="${t[0]}">${t[1]}${t[0] === 'fridge' && expiringSoon().length ? ` <span class="badge">${expiringSoon().length}</span>` : ''}</button>`).join('')}</div>
       <button class="btn brand sm" data-a="meal-add" data-slot="${guessSlot()}">${I('plus', 15)} Log food</button></div>`;
     const summary = `<section class="card s12 nsum"><div class="row between"><div><span class="label">${k === TODAY() ? 'Today' : parseKey(k).toLocaleDateString(undefined, { weekday: 'long' })}</span><h2 style="margin:2px 0 0">${fmt(Math.max(0, p.kcal - T.kcal))} kcal left</h2></div>
       <div class="three nmac">${[['Protein', T.p, p.protein, 'var(--protein)'], ['Carbs', T.c, p.carbs, 'var(--carbs)'], ['Fat', T.f, p.fat, 'var(--fat)']].map(m => `<div><div class="row between small"><span><span class="mdot" style="background:${m[3]}"></span>${m[0]}</span><b class="num">${fmt(m[1])}/${m[2]}g</b></div><div class="bar" style="margin-top:6px"><div style="width:${clamp(m[1] / m[2] * 100, 0, 100)}%;background:${m[3]}"></div></div></div>`).join('')}</div></div></section>`;
     if (ui.nTab === 'fridge') return tabs + `<div class="grid">${summary}${vFridge()}</div>`;
     if (ui.nTab === 'copycat') return tabs + `<div class="grid">${summary}${vCopycat()}</div>`;
+    if (ui.nTab === 'shop') return tabs + `<div class="grid">${vShop()}</div>`;
     let list = D.recipes.filter(r => ui.filter === 'all' || (ui.filter === 'fav' ? S.favorites.includes(r.id) : r.slot === ui.filter));
     if (ui.kitchen.trim()) list = list.map(r => [r, kitchenMatch(r)]).sort((a, b) => b[1] - a[1]).map(x => x[0]);
     if (ui.cheap) list = list.filter(r => r.cost === 1);
@@ -945,6 +998,136 @@
   }
   function resizeImage(file, max = 1024) {
     return new Promise((res, rej) => { const img = new Image(), url = URL.createObjectURL(file); img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', 0.82).split(',')[1]); }; img.onerror = rej; img.src = url; });
+  }
+  /* ---------- Nourish → Shop: budget grocery planner + Instacart (shared ShopKit, same as RepliPlate) ---------- */
+  const SK = window.SHOPKIT;
+  const money = n => '$' + (Math.round((+n || 0) * 100) / 100).toFixed(2);
+  const SHOP_SLOTS = { dinner: ['dinner'], both: ['lunch', 'dinner'], day: ['breakfast', 'lunch', 'dinner'] };
+  const SHOP_FILTERS = [['ORGANIC', 'Organic'], ['GLUTEN_FREE', 'Gluten-free'], ['VEGAN', 'Vegan'], ['LOW_FAT', 'Low-fat'], ['KOSHER', 'Kosher']];
+  const MEAT = /chicken|beef|turkey|pork|ham|steak|sirloin|salmon|shrimp|tuna|tilapia|wing|bacon|sausage/i;
+  const ANIMAL = /egg|milk|cheese|yogurt|butter|cream|feta|parmesan|honey|mayo/i;
+  const STORES = ['Publix', 'Aldi', 'Walmart', 'Target', 'Costco', "Sedano's", 'Winn-Dixie', 'Whole Foods', 'Sprouts', "BJ's"];
+  function shopPrefs() {
+    S.shop = Object.assign({ budget: S.budget || 75, days: 7, meals: 'both', people: 1, goal: 'balanced', filters: [], basics: true, fridge: true, store: '', plan: null, checked: {}, extra: [], day: 6, hour: 10 }, S.shop || {});
+    return S.shop;
+  }
+  const asMeal = r => r && ({ id: r.id, name: r.name, slot: r.slot, kcal: r.kcal, protein: r.p, minutes: r.min, restPrice: r.restPrice, steps: r.steps || [], ingredients: (r.ing || []).map(([name, qty, cost]) => ({ name, qty, cost })) });
+  function shopPool(sp) {
+    const vegan = sp.filters.includes('VEGAN');
+    return [...D.recipes, ...D.clones, ...(S.myClones || [])].filter(r => r && r.ing && r.ing.length && !(vegan && r.ing.some(([n]) => MEAT.test(n) || ANIMAL.test(n))))
+      .map(r => { const m = asMeal(r); if (sp.fridge && (S.fridge || []).length) { const fm = fridgeMatch(r); m.weight = fm.fromFridge * 0.25 + fm.exp * 0.6; } return m; });
+  }
+  // in the fridge? same grocery item (ShopKit key) or the fridge name appears in the ingredient ("Rice" → "long grain white rice")
+  const shopHave = sp => (name, key) => { if (!sp.fridge) return false; const n = D.normalize(name);
+    return (S.fridge || []).some(f => { const fn = D.normalize(f.name); return fn && (SK.keyOf(f.name) === key || n.includes(fn) || (fn.length > 3 && n.includes(fn.replace(/s$/, '')))); }); };
+  const mealById = id => asMeal(findRecipe(id));
+  function buildShop() {
+    const sp = shopPrefs();
+    if (!(sp.budget > 0)) return toast('Enter a budget first');
+    const p = SK.plan({ budget: sp.budget, days: sp.days, slots: SHOP_SLOTS[sp.meals], household: sp.people, pool: shopPool(sp), goal: sp.goal,
+      goals: { kcal: S.profile.kcal, protein: S.profile.protein }, have: shopHave(sp), basics: sp.basics, store: sp.store, startDay: (new Date().getDay() + 6) % 7 });
+    sp.plan = p; sp.checked = {}; save(); render(); scheduleReminders();
+    toast(p.over ? 'That budget is tight. See the cheapest plan and the savings tips.' : `Planned: about ${money(p.total)} of ${money(sp.budget)}`);
+  }
+  function recostShop() { const sp = shopPrefs(); if (sp.plan) { SK.recost(sp.plan, mealById, { have: shopHave(sp), basics: sp.basics }); save(); } render(); }
+  function swapShopMeal(i) {
+    const sp = shopPrefs(), p = sp.plan, s = p && p.meals[i]; if (!s) return;
+    const used = new Set(p.meals.map(m => m.id));
+    const opts = shopPool(sp).filter(m => m.id !== s.id && (!m.slot || m.slot === s.slot || (s.slot !== 'breakfast' && m.slot !== 'breakfast' && m.slot !== 'snack')));
+    if (!opts.length) return toast('No other meals fit this slot');
+    // try each option, keep the one that fits the budget best with the most protein; prefer ones not already in the plan
+    let best = null;
+    for (const m of opts) { const keep = s.id; s.id = m.id; const t = SK.recost(JSON.parse(JSON.stringify(p)), mealById, { have: shopHave(sp), basics: sp.basics }).total; s.id = keep;
+      const u = (m.protein || 0) / 10 - Math.max(0, t - p.target) - (used.has(m.id) ? 2 : 0) + Math.random(); if (!best || u > best.u) best = { m, u }; }
+    s.id = best.m.id; recostShop(); toast(`Swapped in ${best.m.name}`);
+  }
+  async function shopInstacart(kind, id) {
+    const sp = shopPrefs(), api = CLOUD.config.SHOP_API || '';
+    let payload;
+    if (kind === 'recipe') { const m = mealById(id); if (!m) return; payload = SK.recipePayload(m, { servings: Math.max(1, Math.round((sheetCtx.serv || 1) * (sp.people || 1))), filters: sp.filters, author: 'WAYOF', linkback: 'https://thewayof.health/#nourish' }); }
+    else {
+      const p = sp.plan; if (!p) return toast('Plan your groceries first');
+      const items = p.items.filter(i => !i.have && !sp.checked[i.key]).concat((sp.extra || []).map(x => ({ name: x, search: x })));
+      if (!items.length) return toast('Everything is checked off');
+      payload = SK.listPayload(`WAYOF groceries · ${p.days} days · ~${money(p.total)}`, items, { filters: sp.filters, linkback: 'https://thewayof.health/#nourish', instructions: `Budget ${money(p.budget)} · estimated ${money(p.total)}${sp.store ? ' at ' + sp.store : ''}` });
+    }
+    toast('Opening Instacart…');
+    const r = await SK.openInstacart(api, payload);
+    if (!r.ok) { copyText(r.text, api ? `${r.error}. List copied instead.` : 'Instacart isn\'t connected yet, so the list was copied. Paste it anywhere.'); }
+  }
+  function receiptSheet() {
+    const sp = shopPrefs(), p = sp.plan;
+    openSheet(`<div class="sh"><h2>Log my receipt</h2><button class="iconbtn" data-a="close" aria-label="Close">${I('x', 18)}</button></div>
+      <p class="muted small" style="margin-top:0">Type what you actually paid. WAYOF compares it with its estimate and adjusts prices for that store, so next week's plan is closer.</p>
+      <form data-form="shop-receipt" class="stack">
+        <div class="field"><label for="rcStore">Store</label><input id="rcStore" list="rcStores" maxlength="40" value="${esc(sp.store)}" placeholder="Publix, Aldi, Walmart…"><datalist id="rcStores">${STORES.map(s => `<option value="${esc(s)}">`).join('')}</datalist></div>
+        <div class="two"><div class="field"><label for="rcEst">WAYOF estimate</label><input id="rcEst" type="number" step="any" min="1" value="${p ? p.total.toFixed(2) : ''}"></div>
+        <div class="field"><label for="rcAct">I paid</label><input id="rcAct" type="number" step="any" min="1" required placeholder="0.00" inputmode="decimal"></div></div>
+        <p class="note">Leave out things that weren't on the list (snacks, household items) for the best match.</p>
+        <button class="btn brand" data-a="shop-receipt-save">${I('check', 15)} Save and update prices</button></form>
+      ${SK.state.receipts.length ? `<h3>Past receipts</h3>${SK.state.receipts.slice(0, 5).map(r => `<div class="row between small" style="padding:6px 0;border-top:1px solid var(--line)"><span>${new Date(r.at).toLocaleDateString()} · ${esc(r.store || 'Any store')}</span><span>est ${money(r.estimate)} → <b>${money(r.actual)}</b></span></div>`).join('')}` : ''}`);
+  }
+  function saveReceipt() {
+    const est = +$('#rcEst').value, act = +$('#rcAct').value, store = $('#rcStore').value.trim();
+    if (!(act > 0 && est > 0)) return toast('Enter both amounts');
+    const f = SK.logReceipt(est, act, store); const sp = shopPrefs(); if (store) sp.store = store;
+    closeSheet(); recostShop();
+    toast(f ? `Got it. ${store || 'Your store'} runs ${Math.abs(Math.round((f - 1) * 100))}% ${f >= 1 ? 'above' : 'below'} the starting estimates.` : 'Saved');
+  }
+  function priceSheet(key) {
+    const sp = shopPrefs(), it = sp.plan && sp.plan.items.find(i => i.key === key); if (!it) return;
+    numSheet({ title: it.name, label: it.pkg ? `My price for ${it.pkg}` : 'My price per serving', unit: '$', step: 0.01, max: 500, value: +(it.unit / (it.unit && SK.factor(sp.store) || 1)).toFixed(2),
+      hint: 'Set what you pay at your store. Clear it to go back to the estimate.', onSave: v => { SK.setPrice(key, v || ''); recostShop(); } });
+  }
+
+  function vShop() {
+    const sp = shopPrefs(), p = sp.plan, fridgeN = (S.fridge || []).length;
+    const segB = (field, val, opts) => `<div class="seg">${opts.map(([v, l]) => `<button type="button" class="${String(val) === String(v) ? 'on' : ''}" data-a="shop-set" data-f="${field}" data-v="${v}">${l}</button>`).join('')}</div>`;
+    const form = `<section class="card s5"><div class="ch"><h2>Shop to a budget</h2>${I('cart', 20)}</div>
+      <p class="muted small" style="margin-top:0">Enter what you want to spend. WAYOF plans meals that hit your ${fmt(S.profile.kcal)} kcal and ${S.profile.protein} g protein targets, uses your fridge first, and builds one list for Instacart.</p>
+      <div class="two"><div class="field"><label for="shB">Budget ($)</label><input id="shB" type="number" min="5" max="2000" step="5" inputmode="decimal" data-bind="shop.budget" value="${sp.budget}"></div>
+        <div class="field"><label>People</label><div class="stepper"><button type="button" data-a="shop-people" data-n="-1" aria-label="Fewer people">−</button><b class="num">${sp.people}</b><button type="button" data-a="shop-people" data-n="1" aria-label="More people">+</button></div></div></div>
+      <div class="field"><label>Days</label>${segB('days', sp.days, [[3, '3 days'], [5, '5 days'], [7, '7 days']])}</div>
+      <div class="field"><label>Meals</label>${segB('meals', sp.meals, [['dinner', 'Dinners'], ['both', 'Lunch + dinner'], ['day', 'All day']])}</div>
+      <div class="field"><label>Focus</label>${segB('goal', sp.goal, [['balanced', 'Balanced'], ['save', 'Save most'], ['protein', 'More protein'], ['quick', 'Quick']])}</div>
+      <div class="field"><label for="shS">Store <span class="muted">(optional, for price learning)</span></label><input id="shS" list="shStores" maxlength="40" data-bind="shop.store" value="${esc(sp.store)}" placeholder="Publix, Aldi, Walmart…"><datalist id="shStores">${STORES.map(s => `<option value="${esc(s)}">`).join('')}</datalist></div>
+      <div class="field"><label>Instacart filters</label><div class="chips">${SHOP_FILTERS.map(([v, l]) => `<button type="button" class="chip ${sp.filters.includes(v) ? 'on' : ''}" data-a="shop-filter" data-v="${v}">${sp.filters.includes(v) ? I('check', 12) + ' ' : ''}${l}</button>`).join('')}</div></div>
+      <label class="check"><input type="checkbox" data-bind="shop.fridge" ${sp.fridge ? 'checked' : ''}> Use my fridge first ${fridgeN ? `<span class="muted">(${fridgeN} items)</span>` : `<button type="button" class="btn ghost sm" data-a="ntab" data-t="fridge">Add items</button>`}</label>
+      <label class="check" style="padding-top:0"><input type="checkbox" data-bind="shop.basics" ${sp.basics ? 'checked' : ''}> I have the basics (oil, salt, spices, sauces)</label>
+      <div class="two"><div class="field"><label for="shD">Shopping day reminder</label><select id="shD" data-bind="shop.day">${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d, i) => `<option value="${i}" ${+sp.day === i ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
+        <div class="field"><label for="shH">At</label><select id="shH" data-bind="shop.hour">${[7, 8, 9, 10, 11, 12, 14, 16, 17, 18, 19].map(h => `<option value="${h}" ${+sp.hour === h ? 'selected' : ''}>${COACH.hr12(h)}</option>`).join('')}</select></div></div>
+      <button class="btn brand" style="width:100%" data-a="shop-plan">${I('spark', 15)} ${p ? 'Re-plan my groceries' : 'Plan my groceries'}</button>
+      ${!CLOUD.config.SHOP_API ? '<p class="note">Instacart isn\'t connected in config.js yet. You can still plan, and the list copies to paste anywhere.</p>' : ''}</section>`;
+    if (!p) return form + `<section class="card s7 emptystate"><div class="ic">${I('cart', 26)}</div><h3>Your budget plan shows up here</h3><p>Meals for each day, the grocery list with estimated prices, and a button to fill your Instacart cart. Prices are estimates; your store's real total shows at checkout, so WAYOF keeps a cushion.</p></section>`;
+
+    const pct = Math.min(100, p.total / p.budget * 100), color = p.over ? 'var(--bad, #e5484d)' : p.underTarget ? 'var(--good)' : 'var(--warn, #f5a524)';
+    const goalsDay = { kcal: S.profile.kcal, protein: S.profile.protein }, share = SHOP_SLOTS[sp.meals].reduce((a, s) => a + ({ breakfast: .25, lunch: .3, dinner: .35 })[s], 0);
+    const byDay = []; p.meals.forEach((m, i) => { (byDay[m.d] ||= { day: m.day, rows: [] }).rows.push({ ...m, i }); });
+    const toBuy = p.items.filter(i => !i.have), have = p.items.filter(i => i.have);
+    const aisles = {}; toBuy.forEach(i => (aisles[i.aisle] ||= []).push(i));
+    const AISLE = { produce: 'Produce', protein: 'Meat & seafood', dairy: 'Dairy & eggs', bakery: 'Bread & bakery', pantry: 'Pantry', frozen: 'Frozen' };
+    const outSave = p.eatingOut ? p.eatingOut - p.total * (p.outMeals / Math.max(1, p.meals.filter(m => m.id).length)) : 0;
+    const result = `<section class="card s7">
+        <div class="row between"><span class="label">${p.days}-day plan · ${p.household} ${p.household === 1 ? 'person' : 'people'}${p.store ? ' · ' + esc(p.store) : ''}</span><span class="pill">${p.over ? 'Over budget' : p.underTarget ? 'On budget' : 'Close to budget'}</span></div>
+        <div class="row" style="align-items:baseline;gap:8px;margin:6px 0"><span class="big num">${money(p.total)}</span><span class="muted">estimated of ${money(p.budget)}</span></div>
+        <div class="bar"><div style="width:${pct}%;background:${color}"></div></div>
+        <p class="muted small" style="margin:8px 0 0">${p.over ? `The cheapest plan from your recipes is ${money(p.total - p.budget)} over. Try fewer days or meals, or the swaps below.` : `Kept under ${money(p.target)}, so ${money(p.budget - p.target)} of your budget stays free for real store prices.`}${p.factor !== 1 ? ` Prices adjusted ${p.factor > 1 ? '+' : ''}${Math.round((p.factor - 1) * 100)}% from your receipts.` : ''}</p>
+        <div class="three" style="margin-top:12px">
+          <div class="kpi"><span class="label">Per day</span><b class="num">${fmt(p.perDay.kcal)}</b><small class="muted">of ~${fmt(Math.round(goalsDay.kcal * share))} kcal</small></div>
+          <div class="kpi"><span class="label">Protein</span><b class="num">${p.perDay.protein} g</b><small class="muted">of ~${Math.round(goalsDay.protein * share)} g</small></div>
+          <div class="kpi"><span class="label">${outSave > 0 ? 'Saved' : 'Per meal'}</span><b class="num">${outSave > 0 ? money(outSave) : money(p.total / Math.max(1, p.meals.filter(m => m.id).length * p.household))}</b><small class="muted">${outSave > 0 ? 'vs eating out' : 'per serving'}</small></div></div>
+        <div class="row" style="margin-top:14px;flex-wrap:wrap"><button class="btn brand" data-a="shop-ic">${I('cart', 15)} Shop on Instacart</button><button class="btn soft sm" data-a="shop-copy">${I('copy', 13)} Copy list</button><button class="btn ghost sm" data-a="shop-receipt">${I('receipt', 13)} Log receipt</button></div>
+      </section>
+      <section class="card s7"><div class="ch"><h2>Meals</h2><span class="muted small">Tap ↻ to swap</span></div><div class="stack" style="gap:12px">${byDay.filter(Boolean).map(d => `<div><span class="label">${d.day}</span><div class="stack" style="gap:6px;margin-top:6px">${d.rows.map(r => { const m = r.id && findRecipe(r.id); return m ? `<div class="exrow"><button class="ico thumb" data-a="recipe" data-id="${esc(m.id)}" aria-label="Open ${esc(m.name)}" style="border:0;padding:0">${foodArt(m.art, m.id, m.name)}</button><button data-a="recipe" data-id="${esc(m.id)}" style="all:unset;cursor:pointer;flex:1;min-width:0"><strong>${esc(m.name)}</strong><small>${r.slot[0].toUpperCase() + r.slot.slice(1)} · ${m.kcal} kcal · ${m.p} g protein</small></button><button class="iconbtn" data-a="shop-swap" data-i="${r.i}" aria-label="Swap ${esc(m.name)}">${I('refresh', 16)}</button></div>` : `<div class="exrow"><small>${r.slot}: no recipe fits</small></div>`; }).join('')}</div></div>`).join('')}</div></section>
+      <section class="card s5"><div class="ch"><h2>Grocery list</h2><span class="pill">${toBuy.length} items</span></div>
+        ${Object.entries(aisles).map(([a, list]) => `<span class="label" style="display:block;margin:12px 0 4px">${AISLE[a] || a}</span>${list.map(i => `<div class="row between" style="padding:7px 0;border-top:1px solid var(--line);gap:8px">
+          <label class="check" style="padding:0;flex:1;min-width:0;${sp.checked[i.key] ? 'opacity:.5;text-decoration:line-through' : ''}"><input type="checkbox" data-a="shop-check" data-k="${esc(i.key)}" ${sp.checked[i.key] ? 'checked' : ''}><span>${esc(i.name)}<br><small class="muted">${i.pkg ? (i.pkgs > 1 ? i.pkgs + ' × ' : '') + esc(i.pkg) : esc(i.qtys.join(', '))}${i.left && i.left >= 2 ? ` · ${i.left} servings left over` : ''}</small></span></label>
+          <button class="btn ghost sm" data-a="shop-price" data-k="${esc(i.key)}" title="Set my price">${money(i.cost)}</button></div>`).join('')}`).join('')}
+        ${have.length ? `<span class="label" style="display:block;margin:14px 0 4px">Already have</span><p class="small muted" style="margin:0">${have.map(i => esc(i.name) + (i.basic ? '' : ' (fridge)')).join(', ')}</p>` : ''}
+        ${p.pantryCheck.length ? `<p class="note">Check your pantry for: ${p.pantryCheck.map(esc).join(', ')}.</p>` : ''}</section>
+      ${p.swaps.length ? `<section class="card s5"><div class="ch"><h2>${p.over ? 'Get under budget' : 'Save even more'}</h2>${I('tag', 18)}</div><div class="stack" style="gap:8px">${p.swaps.map(s => `<div class="exrow"><div style="flex:1"><strong>${esc(s.note)}</strong></div><span class="rx">−${money(s.save)}</span></div>`).join('')}</div>
+        <p class="note">Prices are estimates for a typical US store and get closer each time you log a receipt or set your own price. The real total shows at checkout.</p></section>` : ''}`;
+    return form + result;
   }
 
   /* ---------- Together: partners & groups ---------- */
@@ -1325,7 +1508,7 @@
       ${r.macroEst ? '<p class="note" style="margin-top:-8px">Carbs and fat are estimated from calories and protein.</p>' : ''}
       <div class="row between" style="padding:8px 0"><b>Servings</b><div class="stepper"><button data-a="serv" data-n="-0.5" aria-label="Fewer servings">−</button><b class="num">×${q}</b><button data-a="serv" data-n="0.5" aria-label="More servings">+</button></div></div>
       <h3 style="margin-top:12px">Ingredients <span class="muted small">(1 serving${hasFridge ? ' · ✓ = in your fridge' : ''})</span></h3><ul class="ing">${r.ing.map(i => { const h = hasFridge ? fridgeHave(i[0]) : null; return `<li class="${h ? 'have' : ''}"><span>${h === 'fridge' ? I('check', 13) + ' ' : ''}${esc(i[0])}</span><span class="muted">${esc(i[1])}${i[2] ? ' · $' + (+i[2]).toFixed(2) : ''}</span></li>`; }).join('')}</ul>
-      ${hasFridge && fridgeMatch(r).missing.length ? `<button class="btn ghost sm" style="margin-top:8px" data-a="shoplist" data-id="${id}">${I('copy', 13)} Copy shopping list (${fridgeMatch(r).missing.length})</button>` : ''}
+      <div class="row" style="margin-top:8px;flex-wrap:wrap"><button class="btn soft sm" data-a="shop-recipe" data-id="${id}">${I('cart', 13)} Shop this recipe</button>${hasFridge && fridgeMatch(r).missing.length ? `<button class="btn ghost sm" data-a="shoplist" data-id="${id}">${I('copy', 13)} Copy shopping list (${fridgeMatch(r).missing.length})</button>` : ''}</div>
       <h3 style="margin-top:16px">Method</h3><ol class="steps">${r.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
       ${isClone ? `<div class="row" style="margin-top:12px"><button class="btn ghost sm" data-a="repli-open" data-id="${id}">${I('ext', 13)} Open in RepliPlate</button><button class="btn ghost sm" data-a="repli-share" data-id="${id}">${I('share', 13)} Share recipe</button></div>` : ''}
       ${r.swaps && r.swaps.length ? `<h3 style="margin-top:12px">Diet swaps</h3><div class="chips">${r.swaps.map(s => `<span class="pill">${esc(s)}</span>`).join('')}</div>` : ''}
@@ -1760,6 +1943,18 @@
     eq: el => { const x = el.dataset.x; S.equipment = S.equipment.includes(x) ? S.equipment.filter(y => y !== x) : [...S.equipment, x]; save(); render(); },
     'eq-add': () => { const x = $('#eqc').value.trim(); if (!x) return toast('Type an equipment name'); if (![...D.equipment, ...S.custom].some(y => y.toLowerCase() === x.toLowerCase())) S.custom.push(x); if (!S.equipment.includes(x)) S.equipment.push(x); save(); render(); toast('Equipment added'); },
     ntab: el => { ui.nTab = el.dataset.t; render(); },
+    'shop-plan': () => buildShop(),
+    'shop-set': el => { const sp = shopPrefs(), f = el.dataset.f, v = el.dataset.v; sp[f] = f === 'days' ? +v : v; save(); render(); },
+    'shop-people': el => { const sp = shopPrefs(); sp.people = Math.max(1, Math.min(10, sp.people + +el.dataset.n)); save(); render(); },
+    'shop-filter': el => { const sp = shopPrefs(), v = el.dataset.v; sp.filters = sp.filters.includes(v) ? sp.filters.filter(x => x !== v) : [...sp.filters, v]; save(); render(); },
+    'shop-check': el => { const sp = shopPrefs(); sp.checked[el.dataset.k] = el.checked; save(); render(); },
+    'shop-swap': el => swapShopMeal(+el.dataset.i),
+    'shop-ic': () => shopInstacart('list'),
+    'shop-recipe': el => shopInstacart('recipe', el.dataset.id),
+    'shop-copy': () => { const p = shopPrefs().plan; if (p) copyText(SK.listText(`WAYOF groceries (~${money(p.total)} of ${money(p.budget)})`, p.items.filter(i => !shopPrefs().checked[i.key])), 'Grocery list copied'); },
+    'shop-receipt': () => receiptSheet(),
+    'shop-receipt-save': () => saveReceipt(),
+    'shop-price': el => priceSheet(el.dataset.k),
     'ntab-go': el => { ui.nTab = el.dataset.t; go('nourish'); },
     nfilter: el => { ui.filter = el.dataset.f; render(); },
     cheap: () => { ui.cheap = !ui.cheap; render(); },
@@ -1795,7 +1990,8 @@
     'nudge-go': el => { const f = S.feed.find(x => x.id === el.dataset.id); if (!f) return; f.read = true; f.dismissed = true; save(); renderChrome(); if (f.action === 'water') A['water-add']({ dataset: { n: 1 } }); else if (f.action === 'train') { const s = sessionFor(TODAY()); s ? openPlayer(TODAY(), s.id) : go('train'); } else if (f.action === 'nourish') { ui.nTab = f.type === 'fridge' ? 'fridge' : 'recipes'; go('nourish'); } else if (f.action === 'coach' && f.type === 'weekly') weeklyReview(); else go(f.action || 'today'); },
     'nudge-dismiss': el => { const f = S.feed.find(x => x.id === el.dataset.id); if (f) { f.dismissed = true; f.read = true; } save(); renderChrome(); render(); },
     ntype: el => { const k = el.dataset.k; S.nudge.types[k] = !S.nudge.types[k]; save(); render(); },
-    'notif-perm': async () => { try { const p = await Notification.requestPermission(); if (p === 'granted') { toast('Device alerts on'); const reg = await navigator.serviceWorker.getRegistration(); if (reg) reg.showNotification('WAYOF nudges are on', { body: 'I\'ll check in at the right moments — never during quiet hours.', icon: 'icon-192.png', tag: 'welcome' }); } } catch (e) { toast('Notifications unavailable here'); } render(); },
+    'notif-perm': async () => { try { const p = await Notification.requestPermission(); if (p === 'granted') { toast('Device alerts on'); if (LN) LN.enable('wayof').then(s => { ui.lnStatus = s; render(); }); const reg = await navigator.serviceWorker.getRegistration(); if (reg) reg.showNotification('WAYOF nudges are on', { body: 'I\'ll check in at the right moments — never during quiet hours.', icon: 'icon-192.png', tag: 'welcome' }); } } catch (e) { toast('Notifications unavailable here'); } render(); },
+    'ln-enable': async () => { if (!LN) return; scheduleReminders(true); ui.lnStatus = await LN.enable('wayof'); toast(ui.lnStatus.registered ? 'Background reminders on' : 'Your browser didn\'t allow it yet. Use WAYOF for a few days and try again.'); render(); },
     'push-sub': async () => { try { if (Notification.permission !== 'granted' && (await Notification.requestPermission()) !== 'granted') return toast('Allow notifications first'); await CLOUD.subscribePush({ quietStart: +S.nudge.quietStart, quietEnd: +S.nudge.quietEnd, max: +S.nudge.max, types: S.nudge.types, style: S.profile.style }); toast('Background AI nudges on'); } catch (e) { toast(e.message); } },
     'body-edit': () => bodySheet(),
     goalby: el => { const b = S.body; if (collectBody() === false) return; b.focus = sheetCtx.focus.slice(); b.goalBy = el.dataset.t; save(TODAY()); bodySheet(); },
@@ -1871,7 +2067,8 @@
     const parts = path.split('.'); let o = S; for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
     const key = parts[parts.length - 1];
     let v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Math.max(0, +el.value || 0) : el.value;
-    if (['plan.days', 'plan.minutes', 'nudge.quietStart', 'nudge.quietEnd', 'nudge.max'].includes(path)) v = +v;
+    if (['plan.days', 'plan.minutes', 'nudge.quietStart', 'nudge.quietEnd', 'nudge.max', 'shop.day', 'shop.hour'].includes(path)) v = +v;
+    if (path.startsWith('shop.') || path.startsWith('nudge.')) scheduleReminders();
     if (path === 'profile.name') v = String(v).trim().slice(0, 45);
     o[key] = v; save();
     if (path === 'profile.name') renderHeader();
@@ -1895,6 +2092,7 @@
     if (kind === 'repli-import') { try { const c = await APPS.repli.parse($('#rpLink').value, D.clones); S.myClones = [c, ...(S.myClones || []).filter(x => x.name !== c.name)].slice(0, 40); save(); ui.aiClone = c; ui.nTab = 'copycat'; toast(`${c.name} imported`); go('nourish'); } catch (x) { toast(x.message); } }
     if (kind === 'forgot') { try { await CLOUD.auth.reset($('#fEmail').value.trim()); toast('Check your email for the reset link'); closeSheet(); } catch (x) { toast(x.message); } }
     if (kind === 'newpw') { const a = $('#npw').value, b = $('#npw2').value; if (a.length < 8) return toast('Use at least 8 characters'); if (a !== b) return toast('Passwords don\'t match'); try { await CLOUD.auth.updatePassword(a); toast('Password updated'); closeSheet(); } catch (x) { toast(x.message); } }
+    if (kind === 'shop-receipt') return saveReceipt();
     if (kind === 'chat') { const i = $('#chatIn'); const t = i.value; i.value = ''; sendChat(t); }
     if (kind === 'fridge') { addFridge($('#fItem').value, $('#fExp').value); setTimeout(() => $('#fItem') && $('#fItem').focus(), 30); }
     if (kind === 'clone') { const q = $('#cloneQ').value.trim(); if (q) aiClone(q); }
@@ -1929,14 +2127,14 @@
   let rT; window.addEventListener('resize', () => { clearTimeout(rT); rT = setTimeout(drawCharts, 120); });
   let lastDay = TODAY();
   setInterval(() => { if (TODAY() !== lastDay) { if (ui.date === lastDay) ui.date = TODAY(); lastDay = TODAY(); renderHeader(); render(); } runNudges(); }, 60000);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { maybeRefreshWx(); runNudges(); } });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { maybeRefreshWx(); runNudges(); } else scheduleReminders(true); });
   if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'nav' && e.data.view) go(e.data.view); });
 
   /* ---------- cloud: auth + sync ---------- */
   async function mergeFromCloud() {
     try {
       const { state, logs } = await CLOUD.pull(S);
-      if (state) { ['profile', 'plan', 'equipment', 'custom', 'favorites', 'fridge', 'budget', 'city', 'geo', 'voice', 'reminders', 'nudge', 'share', 'body', 'links', 'apptsLocal', 'myClones'].forEach(k => { if (state[k] != null) S[k] = Array.isArray(state[k]) ? state[k] : (typeof state[k] === 'object' ? { ...S[k], ...state[k] } : state[k]); }); }
+      if (state) { ['profile', 'plan', 'equipment', 'custom', 'favorites', 'fridge', 'budget', 'city', 'geo', 'voice', 'reminders', 'nudge', 'share', 'body', 'links', 'apptsLocal', 'myClones', 'shop'].forEach(k => { if (state[k] != null) S[k] = Array.isArray(state[k]) ? state[k] : (typeof state[k] === 'object' ? { ...S[k], ...state[k] } : state[k]); }); }
       (logs || []).forEach(r => { const local = S.log[r.day]; if (!local || !hasData(r.day)) S.log[r.day] = { ...emptyLog(), ...r.data }; });
       try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { }
       await CLOUD.pushAll(S);
