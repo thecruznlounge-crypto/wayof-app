@@ -13,10 +13,10 @@
 
 ## New in v8.1: shop to a budget, reminders while closed
 - **Nourish → Shop.** Enter a dollar amount, the days, meals (dinners, lunch + dinner or all day) and people. WAYOF plans meals that hit your calorie and protein targets and uses your fridge first. It prices the list in whole packages, so meals that share ingredients cost less together, and keeps a 12% cushion so real store prices don't push you over. Tap ↻ to swap any meal.
-- **Shop at…** (on the plan, and **Shop this recipe** on every recipe): pick **Amazon Fresh, Walmart, Publix, Aldi or Target**.
-  - Each item opens that store's search already filled in, and tapped items get checked off.
-  - On Amazon, common staples go into the cart in one tap: chicken, rice, black beans, eggs, oats, Greek yogurt and broth. Add more in `js/shopkit.js` → `ASINS`.
-  - This works now, with no account or approval.
+- **Shop at…** (on the plan, and **Shop this recipe** on every recipe): each store works the way that's fastest there.
+  - **Amazon Fresh:** the whole list goes into your Amazon cart in one tap. About 97 of the planner's 110 grocery items are matched to Amazon products, mostly 365 by Whole Foods Market. The few unmatched items (specialty sauces and the like) get a Find button. Product IDs live in `js/shopkit.js` → `ASINS`.
+  - **Walmart:** **Send my list to Walmart (Sparky)** opens your phone's share sheet with the list. Save it to Notes or paste it into Sparky in the Walmart app, and Sparky builds the cart.
+  - **Publix, Aldi, Target:** a checklist to tick off as you shop, plus one button to open the store.
 - **Store brands:** turn on "Store brands for packaged goods" and the plan prices pantry, dairy, frozen and bakery items about 12% lower. The searches then ask for Great Value (Walmart), Publix, Good & Gather (Target) or 365 (Amazon). Fresh produce and meat are searched as-is.
 - **Prices learn:** tap a price to set what you pay, or **Log receipt** after shopping. Each store gets its own price factor. When you're over budget, cheaper swaps show what each one saves.
 - **Amazon commission (optional):** put your Amazon Associates tag in `config.js` → `AMAZON_TAG`.

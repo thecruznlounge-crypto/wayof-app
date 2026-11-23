@@ -1043,29 +1043,54 @@
   }
   /* ---------- Shop at…: store search links + one-tap Amazon cart (works today, no approval needed) ---------- */
   const PREFIX = { ORGANIC: 'organic', GLUTEN_FREE: 'gluten free', LOW_FAT: 'low fat', KOSHER: 'kosher' };
-  function shopItems(kind, id) {
+  function shopItems(kind, id, all) {
     const sp = shopPrefs(), pre = sp.filters.map(f => PREFIX[f]).filter(Boolean).join(' ');
     let items;
     if (kind === 'recipe') { const m = mealById(id); if (!m) return null; items = SK.costList([{ meal: m, times: Math.max(1, Math.round((sheetCtx.serv || 1) * (sp.people || 1))) }], { have: shopHave(sp), basics: sp.basics, storeBrand: !!sp.storeBrand }).items.filter(i => !i.have); }
-    else { const p = sp.plan; if (!p) return null; items = p.items.filter(i => !i.have && !sp.checked[i.key]); }
+    else { const p = sp.plan; if (!p) return null; items = p.items.filter(i => !i.have && (all || !sp.checked[i.key])); }
     return items.map(i => ({ ...i, search: pre ? `${pre} ${i.search || i.name}` : (i.search || i.name) }));
   }
+  const isChecked = (kind, key) => kind === 'recipe' ? !!((ui.storeSheet || {}).checked || {})[key] : !!shopPrefs().checked[key];
   function storesSheet(kind, id) {
-    const sp = shopPrefs(), items = shopItems(kind, id);
+    const sp = shopPrefs(), st = SK.storeById(sp.retailer || 'amazon'), items = shopItems(kind, id, st.mode === 'checklist');
     if (!items) return toast(kind === 'recipe' ? 'Recipe not found' : 'Plan your groceries first');
     if (!items.length) return toast(kind === 'recipe' ? 'You already have everything for this one' : 'Everything is checked off');
-    ui.storeSheet = { kind, id };
-    const r = SK.storeLinks(sp.retailer || 'amazon', items, { amazonTag: CLOUD.config.AMAZON_TAG || '', storeBrand: !!sp.storeBrand }), title = kind === 'recipe' ? (findRecipe(id) || {}).name : `${sp.plan.days}-day groceries`;
+    const prev = ui.storeSheet || {}; ui.storeSheet = { kind, id, checked: prev.kind === kind && prev.id === id ? prev.checked || {} : {} };
+    const title = kind === 'recipe' ? (findRecipe(id) || {}).name : `${sp.plan.days}-day groceries`;
+    const r = SK.storeLinks(st.id, items, { amazonTag: CLOUD.config.AMAZON_TAG || '', storeBrand: !!sp.storeBrand, title });
+    const row = (rw, right) => `<div class="row between" style="padding:8px 0;border-top:1px solid var(--line);gap:8px"><span style="min-width:0">${esc(rw.name)}${rw.detail || rw.brand ? `<br><small class="muted">${esc([rw.brand, rw.detail].filter(Boolean).join(' · '))}</small>` : ''}</span>${right}</div>`;
+    const findBtn = rw => `<button class="btn ghost sm" data-a="shop-open" data-url="${esc(rw.url)}" data-k="${esc(rw.key)}">${I('search', 13)} Find</button>`;
+    let body = '';
+    if (st.mode === 'cart') {
+      const rest = r.rows.filter(x => !x.inCart);
+      body = `${r.cartUrl ? `<button class="btn brand" style="width:100%;margin-bottom:6px" data-a="shop-open" data-url="${esc(r.cartUrl)}" data-cart="1">${I('cart', 15)} Add ${r.cartCount === r.total ? 'all ' : ''}${r.cartCount} item${r.cartCount === 1 ? '' : 's'} to my Amazon cart</button>` : ''}
+        <p class="small muted" style="margin:0 0 10px">${rest.length ? `${rest.length} item${rest.length === 1 ? ' isn\'t' : 's aren\'t'} matched to an Amazon product yet. Tap Find for ${rest.length === 1 ? 'it' : 'those'}.` : 'Everything on this list is in the cart link. Check quantities in your cart, then check out.'}</p>
+        ${rest.map(x => row(x, findBtn(x))).join('')}
+        ${r.cartCount ? `<details style="margin-top:8px"><summary class="small muted">In the cart link (${r.cartCount})</summary>${r.rows.filter(x => x.inCart).map(x => row(x, `<span class="pill">${I('check', 12)}</span>`)).join('')}</details>` : ''}`;
+    } else if (st.mode === 'sparky') {
+      body = `<button class="btn brand" style="width:100%;margin-bottom:6px" data-a="shop-sparky">${I('share', 15)} Send my list to Walmart (Sparky)</button>
+        <ol class="small muted" style="margin:4px 0 10px;padding-left:20px;line-height:1.5"><li>Tap the button and save the list to <b>Notes</b> (or copy it).</li><li>Open the <b>Walmart app</b>, tap <b>Sparky</b>, and share the note or paste the list: "Add these to my cart".</li><li>Sparky matches each item, checks your store's stock and builds the cart.</li></ol>
+        <details><summary class="small muted">Or find items one at a time (${r.rows.length})</summary>${r.rows.map(x => row(x, findBtn(x))).join('')}</details>`;
+    } else {
+      const done = r.rows.filter(x => isChecked(kind, x.key)).length;
+      body = `<div class="row between" style="margin-bottom:6px"><span class="small muted">${done} of ${r.rows.length} in the cart</span><button class="btn soft sm" data-a="shop-open" data-url="${esc(st.home)}">${I('ext', 13)} Open ${esc(st.name)}</button></div>
+        ${r.rows.map(x => { const c = isChecked(kind, x.key); return `<label class="row between" style="padding:9px 0;border-top:1px solid var(--line);gap:10px;cursor:pointer;${c ? 'opacity:.5' : ''}"><span style="display:flex;gap:10px;align-items:center;min-width:0"><input type="checkbox" data-a="shop-tick" data-k="${esc(x.key)}" ${c ? 'checked' : ''}><span style="min-width:0;${c ? 'text-decoration:line-through' : ''}">${esc(x.name)}${x.detail || x.brand ? `<br><small class="muted">${esc([x.brand, x.detail].filter(Boolean).join(' · '))}</small>` : ''}</span></span></label>`; }).join('')}`;
+    }
     openSheet(`<div class="sh"><h2>Shop at…</h2><button class="iconbtn" data-a="close" aria-label="Close">${I('x', 18)}</button></div>
       <p class="muted small" style="margin-top:0">${esc(title)} · ${items.length} item${items.length === 1 ? '' : 's'}${kind !== 'recipe' && sp.plan ? ` · about ${money(sp.plan.total)}` : ''}</p>
-      <div class="chips" style="margin-bottom:10px">${SK.STORES.map(s => `<button type="button" class="chip ${s.id === r.store.id ? 'on' : ''}" data-a="shop-store" data-v="${s.id}">${esc(s.name)}</button>`).join('')}</div>
-      <label class="check" style="padding-top:0"><input type="checkbox" data-a="shop-brand" ${sp.storeBrand ? 'checked' : ''}> ${r.store.brand ? `Store brand: search ${esc(r.store.brand)} for packaged goods` : 'Store brand (Aldi is mostly its own brand already)'}</label>
-      ${r.store.note ? `<p class="note" style="margin-top:0">${esc(r.store.note)}</p>` : ''}
-      ${r.cartUrl ? `<button class="btn brand" style="width:100%;margin-bottom:6px" data-a="shop-open" data-url="${esc(r.cartUrl)}" data-cart="1">${I('cart', 15)} Add ${r.cartCount} item${r.cartCount === 1 ? '' : 's'} to my Amazon cart</button><p class="small muted" style="margin:0 0 10px">Then tap Find for the rest. Each one opens ${esc(r.store.name)} search with that item filled in.</p>` : `<p class="small muted" style="margin:0 0 10px">Tap Find on each item: ${esc(r.store.name)} opens with it searched. Add it to your cart there. Found items get checked off here.</p>`}
-      <div>${r.rows.map((row, n) => `<div class="row between" style="padding:8px 0;border-top:1px solid var(--line);gap:8px"><span style="min-width:0">${esc(row.name)}${row.detail || row.brand ? `<br><small class="muted">${esc([row.brand, row.detail].filter(Boolean).join(' · '))}</small>` : ''}</span>
-        ${row.inCart ? `<span class="pill">${I('check', 12)} in cart link</span>` : `<button class="btn ghost sm" data-a="shop-open" data-url="${esc(row.url)}" data-k="${esc(items[n].key || '')}">${I('search', 13)} Find</button>`}</div>`).join('')}</div>
+      <div class="chips" style="margin-bottom:10px">${SK.STORES.map(x => `<button type="button" class="chip ${x.id === st.id ? 'on' : ''}" data-a="shop-store" data-v="${x.id}">${esc(x.name)}</button>`).join('')}</div>
+      <label class="check" style="padding-top:0"><input type="checkbox" data-a="shop-brand" ${sp.storeBrand ? 'checked' : ''}> ${st.brand ? `Store brand: ${esc(st.brand)} for packaged goods` : 'Store brand (Aldi is mostly its own brand already)'}</label>
+      ${st.note ? `<p class="note" style="margin-top:0">${esc(st.note)}</p>` : ''}
+      ${body}
       ${CLOUD.config.SHOP_API ? `<button class="btn soft" style="width:100%;margin-top:12px" data-a="shop-ic" data-kind="${kind}" data-id="${esc(id || '')}">${I('cart', 15)} Send the whole list to Instacart</button>` : ''}
-      <button class="btn ghost sm" style="margin-top:10px" data-a="shop-copy">${I('copy', 13)} Copy list instead</button>`);
+      <button class="btn ghost sm" style="margin-top:10px" data-a="shop-copy">${I('copy', 13)} Copy list</button>`);
+  }
+  async function sendSparky() {
+    const s = ui.storeSheet || {}, sp = shopPrefs(), items = shopItems(s.kind, s.id) || [];
+    if (!items.length) return toast('Nothing left to buy');
+    const text = SK.shareText('Grocery list', items, SK.storeById('walmart'), !!sp.storeBrand);
+    if (navigator.share) { try { await navigator.share({ title: 'Grocery list', text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    copyText(text, 'List copied. Open the Walmart app, tap Sparky and paste it.');
   }
 
   /* Instacart Developer Platform: kept for later. It only appears when SHOP_API is set in config.js (Instacart isn't taking new developers right now). */
@@ -1981,6 +2006,8 @@
     'shop-ic': el => shopInstacart(el.dataset.kind === 'recipe' ? 'recipe' : 'list', el.dataset.id),
     'shop-stores': () => storesSheet('list'),
     'shop-recipe': el => storesSheet('recipe', el.dataset.id),
+    'shop-sparky': () => sendSparky(),
+    'shop-tick': el => { const s = ui.storeSheet || {}, k = el.dataset.k; if (s.kind === 'recipe') { s.checked[k] = el.checked; } else { shopPrefs().checked[k] = el.checked; save(); } storesSheet(s.kind, s.id); },
     'shop-brand': el => { const sp = shopPrefs(); sp.storeBrand = el.checked; save(); recostShop(); const s = ui.storeSheet || {}; storesSheet(s.kind, s.id); },
     'shop-store': el => { shopPrefs().retailer = el.dataset.v; save(); const s = ui.storeSheet || {}; storesSheet(s.kind, s.id); },
     'shop-open': el => { window.open(el.dataset.url, '_blank', 'noopener'); const sp = shopPrefs(), k = el.dataset.k;

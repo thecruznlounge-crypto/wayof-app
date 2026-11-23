@@ -404,23 +404,46 @@
 
   /* ---------- stores: open each item in a store's search (no account or approval needed) ---------- */
   const STORES = [
-    { id: 'amazon', name: 'Amazon Fresh', brand: '365 by Whole Foods Market', search: q => `https://www.amazon.com/s?k=${encodeURIComponent(q)}&i=amazonfresh`, cart: true, note: 'Common items go straight into your Amazon cart in one tap' },
-    { id: 'walmart', name: 'Walmart', brand: 'Great Value', search: q => `https://www.walmart.com/search?q=${encodeURIComponent(q)}` },
-    { id: 'publix', name: 'Publix', brand: 'Publix', search: q => `https://www.instacart.com/store/publix/s?k=${encodeURIComponent(q)}`, note: 'Publix delivery runs through Instacart' },
-    { id: 'aldi', name: 'Aldi', brand: '', search: q => `https://www.instacart.com/store/aldi/s?k=${encodeURIComponent(q)}`, note: 'Aldi delivery runs through Instacart. Most of what Aldi sells is already its own brand.' },
-    { id: 'target', name: 'Target', brand: 'Good & Gather', search: q => `https://www.target.com/s?searchTerm=${encodeURIComponent(q)}` },
+    // mode: 'cart' = one tap fills the cart · 'sparky' = hand the whole list to Walmart's AI assistant · 'checklist' = shop the store, tick items off
+    { id: 'amazon', name: 'Amazon Fresh', mode: 'cart', brand: '365 by Whole Foods Market', home: 'https://www.amazon.com/alm/storefront?almBrandId=QW1hem9uIEZyZXNo', search: q => `https://www.amazon.com/s?k=${encodeURIComponent(q)}&i=amazonfresh`, cart: true, note: 'Your list goes straight into your Amazon cart in one tap.' },
+    { id: 'walmart', name: 'Walmart', mode: 'sparky', brand: 'Great Value', home: 'https://www.walmart.com/', search: q => `https://www.walmart.com/search?q=${encodeURIComponent(q)}`, note: "Sparky, Walmart's assistant, turns your whole list into a cart." },
+    { id: 'publix', name: 'Publix', mode: 'checklist', brand: 'Publix', home: 'https://www.instacart.com/store/publix', search: q => `https://www.instacart.com/store/publix/s?k=${encodeURIComponent(q)}`, note: 'Check items off as you shop. Publix delivery runs through Instacart.' },
+    { id: 'aldi', name: 'Aldi', mode: 'checklist', brand: '', home: 'https://www.instacart.com/store/aldi', search: q => `https://www.instacart.com/store/aldi/s?k=${encodeURIComponent(q)}`, note: 'Check items off as you shop. Most of what Aldi sells is already its own brand.' },
+    { id: 'target', name: 'Target', mode: 'checklist', brand: 'Good & Gather', home: 'https://www.target.com/c/grocery/-/N-5xt1a', search: q => `https://www.target.com/s?searchTerm=${encodeURIComponent(q)}`, note: 'Check items off as you shop.' },
   ];
-  /* Amazon product IDs (ASINs) for common staples, so they drop into the cart in one tap.
-     These are 365 by Whole Foods Market items. Add more as key: 'ASIN' (the 10 characters after /dp/ in an Amazon link). */
+  /* Amazon product IDs (ASINs), mostly 365 by Whole Foods Market, so a whole list drops into the Amazon cart in one tap.
+     key: 'ASIN', or ['ASIN', n] when one of our packages = n Amazon units (e.g. 4 cans of tuna).
+     To add or swap a product: the ASIN is the 10 characters after /dp/ in an Amazon link (or at the end of a wholefoodsmarket.com product link). */
   const ASINS = {
-    'chicken thigh': 'B079VWF8K4',  // 365 boneless skinless chicken thighs
-    'chicken': 'B0787TJRC2',        // 365 boneless skinless chicken breast
-    'rice': 'B084N8LZS3',           // 365 enriched long grain white rice, 80 oz
-    'black bean': 'B074H6QVKY',     // 365 organic black beans, 15 oz
-    'egg': 'B07PKX183J',            // 365 large brown eggs, 12 ct
-    'oat': 'B07NSRM5G3',            // 365 organic old-fashioned rolled oats, 42 oz
-    'greek yogurt': 'B0D7J7595Z',   // 365 nonfat plain Greek yogurt, 32 oz
-    'broth': 'B07KQVDPWB',          // 365 organic chicken broth, 32 oz
+    // protein
+    'chicken thigh': 'B079VWF8K4', 'chicken tender': 'B07D7XRLD7', 'chicken wing': 'B079VVJV16', 'ground chicken': 'B08B13V5Z3',
+    'cooked chicken': 'B07FZ8ZRVV', 'chicken': 'B0787TJRC2', 'ground turkey': 'B0CVNH43N5', 'ground beef': 'B0CBCX4THF',
+    'sirloin': 'B0787W946Z', 'roast pork': 'B0787Y2PB3', 'ham': 'B07NRL7W31', 'salmon': 'B0D2LQGCYJ', 'shrimp': 'B07NRCSQXP',
+    'tilapia': 'B0D2S1PS8B', 'tuna': ['B07DF3XKFK', 4], 'tofu': 'B074H6QW6C', 'egg': 'B07PKX183J',
+    // dairy
+    'greek yogurt': 'B0D7J7595Z', 'yogurt': 'B074H7KKRV', 'half-and-half': 'B07QD35MFQ', 'heavy cream': 'B07QF6F984',
+    'evaporated milk': 'B074VDM7P4', 'buttermilk': 'B074H6QZ5W', 'oat milk': 'B07SY3YFC1', 'milk': ['B074H6BYCC', 2],
+    'butter': 'B074VDJ7KZ', 'sour cream': 'B07BS4YGL5', 'parmesan': 'B074M9NTCM', 'feta': 'B074JD6HH5', 'goat cheese': 'B07GL6G724',
+    'swiss': 'B07NRCGWYS', 'american cheese': 'B07ZDTFW3H', 'cheddar': 'B07VM5HQCQ', 'hummus': 'B07FWJ8CQM',
+    // produce
+    'avocado': 'B000P6X4WA', 'baby spinach': 'B074H4WRNG', 'kale': 'B000P6H2DM', 'romaine': 'B004USRBFK', 'coleslaw': 'B07FWN3244',
+    'cherry tomato': 'B07Y45MTCS', 'crushed tomato': 'B074H5Z5JW', 'tomato': ['B07FYYBG8J', 4], 'broccoli': ['B07887CXXC', 2],
+    'green bean': 'B078J11TLH', 'zucchini': ['B000P6G1AC', 2], 'bell pepper': 'B07PMFBQ8Y', 'shredded carrot': 'B009SC4Z34',
+    'celery': 'B079DT4BKB', 'cucumber': ['B001PLETDC', 2], 'sweet potato': 'B07FYRRXSY', 'potato': 'B00E3JFK5Y',
+    'shiitake': 'B07FXT18R8', 'green onion': 'B002B9280S', 'red onion': ['B000P6L436', 2], 'onion': 'B07FTJCYL3',
+    'garlic': 'B07NR3LF35', 'ginger': 'B0C6V3416T', 'cilantro': 'B003IMCNH0', 'parsley': 'B0781B9G8R', 'lime': 'B0792NT1VJ',
+    'lemon': 'B00134M726', 'banana': ['B0787Y4V6T', 6], 'apple': 'B0065621MI', 'berr': 'B0CGMGFSWV', 'orange juice': 'B0CXZ449F5',
+    // frozen + bakery
+    'frozen corn': 'B074J6RKQJ', 'tortilla chip': 'B074H577W3', 'corn tortilla': ['B084R4R9PK', 2], 'tortilla': 'B07FW2S6J1',
+    'bun': 'B074H73279', 'bread': 'B07GLJVQ3Y', 'pita chip': 'B074H5Y15R',
+    // pantry
+    'wild rice': 'B084NJ5JDX', 'brown rice': 'B084NHD2R5', 'rice': 'B084N8LZS3', 'quinoa': 'B084NHCJWK', 'oat': 'B07NSRM5G3',
+    'granola': 'B074H6MBQR', 'fettuccine': 'B074H6R3PL', 'lentil': 'B084N94MDJ', 'chickpea': 'B074H55NBT', 'kidney bean': 'B074H5QQ61',
+    'black bean': 'B074H6QVKY', 'broth': 'B07KQVDPWB', 'peanut butter': 'B074H57SPT', 'tahini': 'B074H5LWYM', 'almond': 'B074VFYP8R',
+    'chia': 'B074HJF6KM', 'salsa': 'B0CZPLFXB3', 'pickle': 'B09D8V5LXX',
+    // basics (only on the list when "I have the basics" is off)
+    'olive oil': 'B074H6M64B', 'soy sauce': 'B074H6R4ZJ', 'mayo': 'B074H61RXG', 'ketchup': 'B074MFQVPH', 'honey': 'B074H5BV6W',
+    'flour': 'B074JD6HHH', 'sugar': 'B07NRCP9KK',
   };
   const BRANDABLE = ['pantry', 'dairy', 'frozen', 'bakery'];
   const STORE_BRAND_SAVING = 0.12; // store brands typically run 10–25% below name brands on packaged goods
@@ -429,19 +452,27 @@
   function storeLinks(storeId, items, o = {}) {
     const st = storeById(storeId), asins = Object.assign({}, ASINS, o.asins || {}), inCart = [], rows = [];
     for (const i of items) {
-      const key = i.key || keyOf(i.name), asin = st.cart && asins[key];
-      if (asin) inCart.push({ i, asin, qty: Math.max(1, Math.min(10, i.pkgs || 1)) });
+      const key = i.key || keyOf(i.name), a = st.cart && asins[key], asin = Array.isArray(a) ? a[0] : a, per = Array.isArray(a) ? a[1] : 1;
+      if (asin) inCart.push({ i, asin, qty: Math.max(1, Math.min(20, (i.pkgs || 1) * per)) });
       // store brand: prefix packaged goods with the store's own brand; fresh produce and meat are searched as-is
       const branded = o.storeBrand && st.brand && BRANDABLE.includes(i.aisle || (match(i.name) || {}).aisle);
-      rows.push({ name: i.name, detail: i.pkgs ? `${i.pkgs > 1 ? i.pkgs + ' × ' : ''}${i.pkg}` : (i.qty || ''), url: st.search((branded ? st.brand + ' ' : '') + (i.search || i.name)), inCart: !!asin, brand: branded ? st.brand : '' });
+      rows.push({ key: i.key || keyOf(i.name), name: i.name, detail: i.pkgs ? `${i.pkgs > 1 ? i.pkgs + ' × ' : ''}${i.pkg}` : (i.qty || ''), url: st.search((branded ? st.brand + ' ' : '') + (i.search || i.name)), inCart: !!asin, brand: branded ? st.brand : '' });
     }
     let cartUrl = '';
     if (inCart.length) {
       const q = inCart.slice(0, 50).map((c, n) => `ASIN.${n + 1}=${c.asin}&Quantity.${n + 1}=${c.qty}`).join('&');
       cartUrl = `https://www.amazon.com/gp/aws/cart/add.html?${q}${o.amazonTag ? '&AssociateTag=' + encodeURIComponent(o.amazonTag) : ''}`;
     }
-    return { store: st, rows, cartUrl, cartCount: inCart.length };
+    return { store: st, rows, cartUrl, cartCount: inCart.length, total: items.length, shareText: shareText(o.title || 'Grocery list', items, st, o.storeBrand) };
+  }
+  /** Plain list for Walmart's Sparky (via Notes or paste) or any other app: one item per line, with how much to buy. */
+  function shareText(title, items, st, storeBrand) {
+    return items.map(i => {
+      const branded = storeBrand && st && st.brand && BRANDABLE.includes(i.aisle || (match(i.name) || {}).aisle);
+      const qty = i.pkgs ? `${i.pkgs > 1 ? i.pkgs + ' × ' : ''}${i.pkg}` : (i.qty || '');
+      return `${branded ? st.brand + ' ' : ''}${i.search || i.name}${qty ? ' (' + qty + ')' : ''}`;
+    }).join('\n');
   }
 
-  G.SHOPKIT = { VERSION, STORES, BRANDABLE, STORE_BRAND_SAVING, ASINS, storeLinks, storeById, PRICES, HEALTH, match, keyOf, norm, costList, plan, recost, logReceipt, setPrice, reset, factor, state: st, listPayload, recipePayload, openInstacart, listText, textOf, measure, DAY_NAMES };
+  G.SHOPKIT = { VERSION, STORES, shareText, BRANDABLE, STORE_BRAND_SAVING, ASINS, storeLinks, storeById, PRICES, HEALTH, match, keyOf, norm, costList, plan, recost, logReceipt, setPrice, reset, factor, state: st, listPayload, recipePayload, openInstacart, listText, textOf, measure, DAY_NAMES };
 })(typeof window !== 'undefined' ? window : globalThis);
